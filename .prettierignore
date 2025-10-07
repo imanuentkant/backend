@@ -1,0 +1,11 @@
+node_modules
+.dist
+dist
+coverage
+.coverage
+asset
+.env
+.env*
+# Generated files
+**/*.generated.ts
+**/*.gen.ts
