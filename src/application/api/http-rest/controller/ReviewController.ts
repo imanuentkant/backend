@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CreateReviewDto } from '@application/api/http-rest/dto/review/CreateReviewDto';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Review Controller - Airbnb-like review system
@@ -34,7 +34,7 @@ export class ReviewController {
     
     // Mock response
     return {
-      id: uuid(),
+      id: UuidGenerator.generate(),
       bookingId: dto.bookingId,
       reviewerId,
       ratings: {
@@ -72,7 +72,7 @@ export class ReviewController {
     // Mock data
     const mockReviews = [
       {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         reviewer: {
           name: 'Alice Johnson',
           photo: 'https://via.placeholder.com/150',
@@ -94,7 +94,7 @@ export class ReviewController {
         stayDate: '2025-09-01',
       },
       {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         reviewer: {
           name: 'Bob Smith',
           photo: 'https://via.placeholder.com/150',
@@ -115,7 +115,7 @@ export class ReviewController {
         stayDate: '2025-08-15',
       },
       {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         reviewer: {
           name: 'Carol Davis',
           photo: 'https://via.placeholder.com/150',
@@ -181,9 +181,9 @@ export class ReviewController {
     return {
       data: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           property: {
-            id: uuid(),
+            id: UuidGenerator.generate(),
             title: 'Cozy Apartment',
             location: 'Ho Chi Minh City',
             coverPhoto: 'https://via.placeholder.com/400x300',

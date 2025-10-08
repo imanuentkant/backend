@@ -9,7 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * WebSocket Gateway cho real-time messaging
@@ -80,7 +80,7 @@ export class MessagingWebSocketGateway implements OnGatewayConnection, OnGateway
     
     // Create message
     const message = {
-      id: uuid(),
+      id: UuidGenerator.generate(),
       conversationId: data.conversationId,
       senderId: userId,
       content: data.content,

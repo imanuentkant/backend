@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Delete, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Wishlist Controller - Save favorite properties
@@ -20,7 +20,7 @@ export class WishlistController {
   @ApiResponse({ status: 201, description: 'Added to wishlist' })
   async addToWishlist(@Param('propertyId') propertyId: string, @Req() request: any) {
     return {
-      id: uuid(),
+      id: UuidGenerator.generate(),
       propertyId,
       userId: request.user.id,
       addedAt: new Date(),
@@ -53,9 +53,9 @@ export class WishlistController {
     return {
       data: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           property: {
-            id: uuid(),
+            id: UuidGenerator.generate(),
             title: 'Cozy Apartment',
             location: 'Ho Chi Minh City',
             pricePerNight: 100,
@@ -67,9 +67,9 @@ export class WishlistController {
           addedAt: '2025-10-01T10:00:00Z',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           property: {
-            id: uuid(),
+            id: UuidGenerator.generate(),
             title: 'Beach Villa',
             location: 'Da Nang',
             pricePerNight: 300,

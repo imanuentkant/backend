@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
 import { StripePaymentService } from '@infrastructure/adapter/payment/StripePaymentService';
 import { PaymentStatus } from '@core/common/enums/BookingEnums';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Payment Controller - Stripe integration for Airbnb-like payments
@@ -67,7 +67,7 @@ export class PaymentController {
     // Notify host
 
     return {
-      paymentId: uuid(),
+      paymentId: UuidGenerator.generate(),
       stripePaymentIntentId: result.id,
       amount: result.amount,
       status: PaymentStatus.COMPLETED,
@@ -88,7 +88,7 @@ export class PaymentController {
     // Mock response
     return {
       id,
-      bookingId: uuid(),
+      bookingId: UuidGenerator.generate(),
       amount: 476.00,
       currency: 'USD',
       status: PaymentStatus.COMPLETED,
@@ -161,7 +161,7 @@ export class PaymentController {
     return {
       data: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           type: 'payment',
           amount: 476.00,
           currency: 'USD',
@@ -170,7 +170,7 @@ export class PaymentController {
           date: '2025-10-01T10:00:00Z',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           type: 'refund',
           amount: 400.00,
           currency: 'USD',
@@ -199,7 +199,7 @@ export class PaymentController {
     return {
       data: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           amount: 1455.00,
           currency: 'USD',
           status: 'paid',
@@ -208,7 +208,7 @@ export class PaymentController {
           expectedArrival: '2025-10-08',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           amount: 970.00,
           currency: 'USD',
           status: 'in_transit',

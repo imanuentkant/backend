@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Message Controller - Airbnb-like messaging system
@@ -25,15 +25,15 @@ export class MessageController {
     return {
       data: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           property: {
-            id: uuid(),
+            id: UuidGenerator.generate(),
             title: 'Cozy Apartment',
             location: 'Ho Chi Minh City',
             coverPhoto: 'https://via.placeholder.com/400x300',
           },
           participant: {
-            id: uuid(),
+            id: UuidGenerator.generate(),
             name: 'John Doe',
             photo: 'https://via.placeholder.com/150',
             responseRate: 95,
@@ -49,15 +49,15 @@ export class MessageController {
           updatedAt: '2025-10-08T14:30:00Z',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           property: {
-            id: uuid(),
+            id: UuidGenerator.generate(),
             title: 'Beach House',
             location: 'Da Nang',
             coverPhoto: 'https://via.placeholder.com/400x300',
           },
           participant: {
-            id: uuid(),
+            id: UuidGenerator.generate(),
             name: 'Jane Smith',
             photo: 'https://via.placeholder.com/150',
             responseRate: 98,
@@ -92,14 +92,14 @@ export class MessageController {
       conversation: {
         id,
         property: {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           title: 'Cozy Apartment in City Center',
           location: 'Ho Chi Minh City, Vietnam',
           pricePerNight: 100,
           coverPhoto: 'https://via.placeholder.com/400x300',
         },
         participant: {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           name: 'John Doe',
           photo: 'https://via.placeholder.com/150',
           role: 'host',
@@ -108,7 +108,7 @@ export class MessageController {
           verified: true,
         },
         booking: {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           checkIn: '2025-11-01',
           checkOut: '2025-11-05',
           status: 'confirmed',
@@ -116,32 +116,32 @@ export class MessageController {
       },
       messages: [
         {
-          id: uuid(),
-          senderId: uuid(),
+          id: UuidGenerator.generate(),
+          senderId: UuidGenerator.generate(),
           senderName: 'You',
           content: 'Hi! Is this property available from Nov 1-5?',
           isRead: true,
           createdAt: '2025-10-07T10:00:00Z',
         },
         {
-          id: uuid(),
-          senderId: uuid(),
+          id: UuidGenerator.generate(),
+          senderId: UuidGenerator.generate(),
           senderName: 'John Doe',
           content: 'Hi! Yes, it is available for those dates. Would you like to book?',
           isRead: true,
           createdAt: '2025-10-07T10:15:00Z',
         },
         {
-          id: uuid(),
-          senderId: uuid(),
+          id: UuidGenerator.generate(),
+          senderId: UuidGenerator.generate(),
           senderName: 'You',
           content: 'Great! What time is check-in?',
           isRead: true,
           createdAt: '2025-10-07T10:20:00Z',
         },
         {
-          id: uuid(),
-          senderId: uuid(),
+          id: UuidGenerator.generate(),
+          senderId: UuidGenerator.generate(),
           senderName: 'John Doe',
           content: 'Check-in is from 2 PM to 10 PM. Let me know if you need late check-in!',
           isRead: false,
@@ -166,7 +166,7 @@ export class MessageController {
     
     // Mock response
     const message = {
-      id: uuid(),
+      id: UuidGenerator.generate(),
       conversationId,
       senderId,
       content: body.content,
@@ -210,14 +210,14 @@ export class MessageController {
     
     return {
       conversation: {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         propertyId: body.propertyId,
         guestId,
         hostId: body.hostId,
         createdAt: new Date(),
       },
       firstMessage: {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         content: body.message,
         sentAt: new Date(),
       },
@@ -234,8 +234,8 @@ export class MessageController {
     return {
       total: 5,
       conversations: [
-        { conversationId: uuid(), count: 2 },
-        { conversationId: uuid(), count: 3 },
+        { conversationId: UuidGenerator.generate(), count: 2 },
+        { conversationId: UuidGenerator.generate(), count: 3 },
       ],
     };
   }

@@ -18,7 +18,7 @@ import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtA
 import { UploadPhotoDto, ReorderPhotosDto, UpdatePhotoDto } from '@application/api/http-rest/dto/property/UploadPhotoDto';
 import { CoreDITokens } from '@core/common/di/CoreDITokens';
 import { FileStoragePort } from '@core/common/port/storage/FileStoragePort';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Property Photo Controller - Photo management for properties
@@ -65,7 +65,7 @@ export class PropertyPhotoController {
     @Body() dto: Partial<UploadPhotoDto>,
     @Req() request: any,
   ) {
-    const photoId = uuid();
+    const photoId = UuidGenerator.generate();
     const filename = `properties/${propertyId}/${photoId}-${file.originalname}`;
     
     // Upload file sử dụng FileStoragePort abstraction
@@ -123,7 +123,7 @@ export class PropertyPhotoController {
     return {
       data: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           url: 'https://via.placeholder.com/800x600/FF5A5F/FFFFFF?text=Cover+Photo',
           isCover: true,
           orderIndex: 0,
@@ -131,7 +131,7 @@ export class PropertyPhotoController {
           uploadedAt: '2025-10-01T10:00:00Z',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           url: 'https://via.placeholder.com/800x600/008489/FFFFFF?text=Bedroom',
           isCover: false,
           orderIndex: 1,
@@ -139,7 +139,7 @@ export class PropertyPhotoController {
           uploadedAt: '2025-10-01T10:05:00Z',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           url: 'https://via.placeholder.com/800x600/00A699/FFFFFF?text=Kitchen',
           isCover: false,
           orderIndex: 2,
@@ -147,7 +147,7 @@ export class PropertyPhotoController {
           uploadedAt: '2025-10-01T10:10:00Z',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           url: 'https://via.placeholder.com/800x600/FC642D/FFFFFF?text=Bathroom',
           isCover: false,
           orderIndex: 3,
@@ -155,7 +155,7 @@ export class PropertyPhotoController {
           uploadedAt: '2025-10-01T10:15:00Z',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           url: 'https://via.placeholder.com/800x600/484848/FFFFFF?text=View',
           isCover: false,
           orderIndex: 4,

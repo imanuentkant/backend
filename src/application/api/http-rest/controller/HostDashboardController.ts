@@ -1,7 +1,7 @@
 import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Host Dashboard Controller - Analytics and insights for hosts
@@ -75,14 +75,14 @@ export class HostDashboardController {
       },
       byProperty: [
         {
-          propertyId: uuid(),
+          propertyId: UuidGenerator.generate(),
           title: 'Cozy Apartment',
           earnings: 1600.00,
           bookings: 4,
           occupancyRate: 75,
         },
         {
-          propertyId: uuid(),
+          propertyId: UuidGenerator.generate(),
           title: 'Beach House',
           earnings: 1200.00,
           bookings: 2,
@@ -111,14 +111,14 @@ export class HostDashboardController {
       },
       byProperty: [
         {
-          propertyId: uuid(),
+          propertyId: UuidGenerator.generate(),
           title: 'Cozy Apartment',
           occupancyRate: 75,
           bookedNights: 45,
           availableNights: 60,
         },
         {
-          propertyId: uuid(),
+          propertyId: UuidGenerator.generate(),
           title: 'Beach House',
           occupancyRate: 66.7,
           bookedNights: 20,

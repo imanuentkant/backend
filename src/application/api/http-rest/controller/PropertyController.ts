@@ -4,7 +4,7 @@ import { CreatePropertyDto } from '@application/api/http-rest/dto/property/Creat
 import { SearchPropertyDto } from '@application/api/http-rest/dto/property/SearchPropertyDto';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
 import { PropertyType, PropertyStatus } from '@core/common/enums/PropertyEnums';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Property Controller - Airbnb-like property management
@@ -26,7 +26,7 @@ export class PropertyController {
     
     // Mock response - sẽ thay bằng use case sau
     return {
-      id: uuid(),
+      id: UuidGenerator.generate(),
       hostId,
       title: dto.title,
       description: dto.description,
@@ -70,7 +70,7 @@ export class PropertyController {
     // Mock data - sẽ thay bằng search use case sau
     const mockProperties = [
       {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         title: 'Cozy Apartment in City Center',
         description: 'Beautiful modern apartment with stunning city views. Perfect for couples or small families. Walking distance to major attractions.',
         propertyType: PropertyType.APARTMENT,
@@ -96,7 +96,7 @@ export class PropertyController {
         instantBooking: true,
       },
       {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         title: 'Luxury Villa with Private Pool',
         description: 'Stunning villa with private pool and garden. 5 minutes from beach. Perfect for families and groups.',
         propertyType: PropertyType.VILLA,
@@ -122,7 +122,7 @@ export class PropertyController {
         instantBooking: false,
       },
       {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         title: 'Charming House near Beach',
         description: 'Comfortable house with sea view. 2 minutes walk to the beach. Ideal for beach lovers.',
         propertyType: PropertyType.HOUSE,
@@ -233,7 +233,7 @@ export class PropertyController {
       instantBooking: true,
       status: PropertyStatus.ACTIVE,
       host: {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         name: 'John Doe',
         email: 'john@example.com',
         photo: 'https://via.placeholder.com/150',
@@ -252,16 +252,16 @@ export class PropertyController {
         longitude: 106.6297,
       },
       amenities: [
-        { id: uuid(), name: 'WiFi', icon: 'wifi', category: 'basic' },
-        { id: uuid(), name: 'Kitchen', icon: 'kitchen', category: 'basic' },
-        { id: uuid(), name: 'Air Conditioning', icon: 'ac', category: 'basic' },
-        { id: uuid(), name: 'TV', icon: 'tv', category: 'entertainment' },
-        { id: uuid(), name: 'Washing Machine', icon: 'washing', category: 'basic' },
+        { id: UuidGenerator.generate(), name: 'WiFi', icon: 'wifi', category: 'basic' },
+        { id: UuidGenerator.generate(), name: 'Kitchen', icon: 'kitchen', category: 'basic' },
+        { id: UuidGenerator.generate(), name: 'Air Conditioning', icon: 'ac', category: 'basic' },
+        { id: UuidGenerator.generate(), name: 'TV', icon: 'tv', category: 'entertainment' },
+        { id: UuidGenerator.generate(), name: 'Washing Machine', icon: 'washing', category: 'basic' },
       ],
       photos: [
-        { id: uuid(), url: 'https://via.placeholder.com/800x600', isCover: true, order: 1 },
-        { id: uuid(), url: 'https://via.placeholder.com/800x600', isCover: false, order: 2 },
-        { id: uuid(), url: 'https://via.placeholder.com/800x600', isCover: false, order: 3 },
+        { id: UuidGenerator.generate(), url: 'https://via.placeholder.com/800x600', isCover: true, order: 1 },
+        { id: UuidGenerator.generate(), url: 'https://via.placeholder.com/800x600', isCover: false, order: 2 },
+        { id: UuidGenerator.generate(), url: 'https://via.placeholder.com/800x600', isCover: false, order: 3 },
       ],
       rating: 4.8,
       reviewCount: 24,
@@ -337,7 +337,7 @@ export class PropertyController {
     return {
       data: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           title: 'My Property 1',
           propertyType: PropertyType.APARTMENT,
           status: PropertyStatus.ACTIVE,
@@ -348,7 +348,7 @@ export class PropertyController {
           reviewCount: 10,
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           title: 'My Property 2',
           propertyType: PropertyType.HOUSE,
           status: PropertyStatus.DRAFT,

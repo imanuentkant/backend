@@ -1,8 +1,9 @@
 import { Entity } from '@core/common/entity/Entity';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Base entity với timestamp support cho Airbnb features
+ * Sử dụng UUID v7 (time-based, sortable)
  */
 export abstract class TimestampedEntity<TIdentifier extends string> extends Entity<TIdentifier> {
   
@@ -11,7 +12,7 @@ export abstract class TimestampedEntity<TIdentifier extends string> extends Enti
   
   constructor(id?: TIdentifier, createdAt?: Date, updatedAt?: Date) {
     super();
-    this.id = id || (uuid() as TIdentifier);
+    this.id = id || (UuidGenerator.generate() as TIdentifier);
     this.createdAt = createdAt || new Date();
     this.updatedAt = updatedAt || new Date();
   }

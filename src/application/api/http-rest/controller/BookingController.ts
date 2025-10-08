@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { CreateBookingDto } from '@application/api/http-rest/dto/booking/CreateBookingDto';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
 import { BookingStatus, CancellationPolicy } from '@core/common/enums/BookingEnums';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Booking Controller - Airbnb-like booking management
@@ -36,7 +36,7 @@ export class BookingController {
     
     // Mock response
     return {
-      id: uuid(),
+      id: UuidGenerator.generate(),
       propertyId: dto.propertyId,
       guestId,
       checkInDate: dto.checkInDate,
@@ -79,8 +79,8 @@ export class BookingController {
     // Mock data
     const mockBookings = [
       {
-        id: uuid(),
-        propertyId: uuid(),
+        id: UuidGenerator.generate(),
+        propertyId: UuidGenerator.generate(),
         checkInDate: '2025-11-01',
         checkOutDate: '2025-11-05',
         totalNights: 4,
@@ -100,8 +100,8 @@ export class BookingController {
         createdAt: '2025-10-01',
       },
       {
-        id: uuid(),
-        propertyId: uuid(),
+        id: UuidGenerator.generate(),
+        propertyId: UuidGenerator.generate(),
         checkInDate: '2025-12-15',
         checkOutDate: '2025-12-20',
         totalNights: 5,
@@ -149,7 +149,7 @@ export class BookingController {
     // Mock response
     return {
       id,
-      propertyId: uuid(),
+      propertyId: UuidGenerator.generate(),
       guestId: request.user.id,
       checkInDate: '2025-11-01',
       checkOutDate: '2025-11-05',
@@ -168,7 +168,7 @@ export class BookingController {
       cancellationPolicy: CancellationPolicy.FLEXIBLE,
       specialRequests: 'Late check-in around 10 PM',
       property: {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         title: 'Cozy Apartment in City Center',
         address: '123 Main Street, District 1',
         location: 'Ho Chi Minh City, Vietnam',
@@ -177,7 +177,7 @@ export class BookingController {
         checkOutTime: '12:00',
       },
       host: {
-        id: uuid(),
+        id: UuidGenerator.generate(),
         name: 'John Doe',
         email: 'john@example.com',
         phone: '+84 123 456 789',
@@ -309,8 +309,8 @@ export class BookingController {
     return {
       data: [
         {
-          id: uuid(),
-          propertyId: uuid(),
+          id: UuidGenerator.generate(),
+          propertyId: UuidGenerator.generate(),
           propertyTitle: 'My Cozy Apartment',
           guest: {
             name: 'Alice Johnson',

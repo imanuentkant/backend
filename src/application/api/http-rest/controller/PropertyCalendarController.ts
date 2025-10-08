@@ -8,7 +8,7 @@ import {
   BlockDatesDto,
   UpdateAvailabilityRulesDto,
 } from '@application/api/http-rest/dto/property/CalendarDto';
-import { v4 as uuid } from 'uuid';
+import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
  * Property Calendar Controller - Calendar and pricing management
@@ -57,7 +57,7 @@ export class PropertyCalendarController {
         isAvailable: !isBooked && !isBlocked,
         status: isBooked ? 'booked' : isBlocked ? 'blocked' : 'available',
         minimumNights: 1,
-        bookingId: isBooked ? uuid() : null,
+        bookingId: isBooked ? UuidGenerator.generate() : null,
       });
     }
     
@@ -290,14 +290,14 @@ export class PropertyCalendarController {
       },
       upcomingBookings: [
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           checkIn: '2025-10-15',
           checkOut: '2025-10-18',
           nights: 3,
           guest: 'John Doe',
         },
         {
-          id: uuid(),
+          id: UuidGenerator.generate(),
           checkIn: '2025-10-22',
           checkOut: '2025-10-25',
           nights: 3,
