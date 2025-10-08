@@ -1,0 +1,25 @@
+# Thêm các dependencies sau vào package.json:
+
+## Production Dependencies
+{
+  "dependencies": {
+    "@nestjs/websockets": "^11.1.4",
+    "@nestjs/platform-socket.io": "^11.1.4",
+    "socket.io": "^4.8.1",
+    "stripe": "^17.3.1",
+    "@sendgrid/mail": "^8.1.4",
+    "twilio": "^5.3.5"
+  }
+}
+
+## Dev Dependencies  
+{
+  "devDependencies": {
+    "@types/socket.io": "^3.0.2"
+  }
+}
+
+# Hoặc chạy:
+npm install @nestjs/websockets @nestjs/platform-socket.io socket.io stripe @sendgrid/mail twilio
+npm install -D @types/socket.io
+

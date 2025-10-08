@@ -1,7 +1,7 @@
 // src/core/domain/post/entity/PostMedia.ts
 import { MediaType } from '@core/common/enums/MediaEnums';
 import { Entity } from '@core/common/entity/Entity';
-import { v4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 
 export enum PostMediaType {
     COVER = 'COVER',
@@ -50,7 +50,7 @@ export class PostMedia extends Entity<string> {
         this.type = payload.type;
         this.sortOrder = payload.sortOrder;
         this.mediaDetails = payload.mediaDetails;
-        this.id = payload.id || v4();
+        this.id = payload.id || uuidv7();
         this.createdAt = payload.createdAt || new Date();
     }
 
@@ -89,7 +89,7 @@ export class PostMedia extends Entity<string> {
     public static async new(payload: Omit<CreatePostMediaEntityPayload, 'id' | 'createdAt'>): Promise<PostMedia> {
         return new PostMedia({
             ...payload,
-            id: v4(),
+            id: uuidv7(),
             createdAt: new Date()
         });
     }

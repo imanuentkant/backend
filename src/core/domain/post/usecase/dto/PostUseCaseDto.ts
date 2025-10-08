@@ -46,3 +46,51 @@ export interface PostUseCaseDto {
   editedAt: Optional<number>;
   publishedAt: Optional<number>;
 }
+
+// Bổ sung namespace để cung cấp factory hàm như trước: PostUseCaseDto.newFromPost(...)
+// Cho phép test cũ tiếp tục dùng API này.
+import { Post } from '@core/domain/post/entity/Post';
+import { PostImage } from '@core/domain/post/entity/PostImage';
+
+export namespace PostUseCaseDto {
+  export function newFromPost(post: Post): import('./PostUseCaseDto').PostUseCaseDto {
+    const coverImage: PostImage | null = post.getCoverImage();
+    const galleryImages: PostImage[] = post.getGalleryImages();
+    return {
+      id: post.getId(),
+      owner: {
+        id: post.getOwner().getId(),
+        name: post.getOwner().getName(),
+        role: post.getOwner().getRole(),
+      },
+      title: post.getTitle(),
+      content: post.getContent(),
+      status: post.getStatus(),
+      image: coverImage ? { id: coverImage.getId(), url: coverImage.getRelativePath() } : undefined,
+      coverImage: coverImage ? { id: coverImage.getId(), url: coverImage.getRelativePath() } : undefined,
+      galleryImages: galleryImages.map(img => ({ id: img.getId(), url: img.getRelativePath() })),
+      mediaCollection: post.getMediaCollection().getAll().map(m => ({
+        id: m.getId(),
+        mediaId: m.getMediaId(),
+        type: m.getType(),
+        sortOrder: m.getSortOrder(),
+        media: {
+          id: m.getMediaId(),
+          name: '',
+          url: '',
+          type: '',
+          size: 0,
+          ext: '',
+          mimetype: '',
+        },
+      })),
+      createdAt: post.getCreatedAt().getTime(),
+      editedAt: post.getEditedAt()?.getTime(),
+      publishedAt: post.getPublishedAt()?.getTime(),
+    };
+  }
+
+  export function newListFromPosts(posts: Post[]): import('./PostUseCaseDto').PostUseCaseDto[] {
+    return posts.map(p => newFromPost(p));
+  }
+}

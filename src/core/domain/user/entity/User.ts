@@ -6,7 +6,7 @@ import { CreateUserEntityPayload } from '@core/domain/user/entity/type/CreateUse
 import { EditUserEntityPayload } from '@core/domain/user/entity/type/EditUserEntityPayload';
 import { compare, genSalt, hash } from 'bcryptjs';
 import { IsDate, IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
-import { v4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 
 export class User extends Entity<string> implements RemovableEntity {
   
@@ -45,7 +45,7 @@ export class User extends Entity<string> implements RemovableEntity {
     this.role      = payload.role;
     this.password  = payload.password;
   
-    this.id        = payload.id || v4();
+    this.id        = payload.id || uuidv7();
     this.createdAt = payload.createdAt || new Date();
     this.editedAt  = payload.editedAt || null;
     this.removedAt = payload.removedAt || null;

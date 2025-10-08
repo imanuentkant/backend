@@ -37,20 +37,20 @@ const persistenceProviders: Provider[] = [
 const useCaseProviders: Provider[] = [
   {
     provide   : MediaDITokens.CreateMediaUseCase,
-    useFactory: (mediaRepository, mediaFileStorage) => {
-      const service: CreateMediaUseCase = new CreateMediaService(mediaRepository, mediaFileStorage);
+    useFactory: (mediaRepository, mediaFileStorage, asyncPersistence) => {
+      const service: CreateMediaUseCase = new CreateMediaService(mediaRepository, mediaFileStorage, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject    : [MediaDITokens.MediaRepository, MediaDITokens.MediaFileStorage]
+    inject    : [MediaDITokens.MediaRepository, MediaDITokens.MediaFileStorage, CoreDITokens.AsyncPersistence]
   },
   {
     provide   : MediaDITokens.EditMediaUseCase,
-    useFactory: (mediaRepository) => {
-      const service: EditMediaUseCase = new EditMediaService(mediaRepository);
+    useFactory: (mediaRepository, asyncPersistence) => {
+      const service: EditMediaUseCase = new EditMediaService(mediaRepository, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
       
     },
-    inject    : [MediaDITokens.MediaRepository]
+    inject    : [MediaDITokens.MediaRepository, CoreDITokens.AsyncPersistence]
   },
   {
     provide   : MediaDITokens.GetMediaListUseCase,
@@ -64,11 +64,11 @@ const useCaseProviders: Provider[] = [
   },
   {
     provide   : MediaDITokens.RemoveMediaUseCase,
-    useFactory: (mediaRepository, eventBus) => {
-      const service: RemoveMediaUseCase = new RemoveMediaService(mediaRepository, eventBus);
+    useFactory: (mediaRepository, eventBus, asyncPersistence) => {
+      const service: RemoveMediaUseCase = new RemoveMediaService(mediaRepository, eventBus, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject    : [MediaDITokens.MediaRepository, CoreDITokens.EventBus]
+    inject    : [MediaDITokens.MediaRepository, CoreDITokens.EventBus, CoreDITokens.AsyncPersistence]
   },
 ];
 

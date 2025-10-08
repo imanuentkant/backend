@@ -6,7 +6,7 @@ import { FileMetadata } from '@core/domain/media/value-object/FileMetadata';
 import * as Minio from 'minio';
 import { BucketItemStat } from 'minio';
 import { Readable } from 'stream';
-import { v4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 import {ConfigService} from '@nestjs/config';
 import {Injectable} from '@nestjs/common';
 
@@ -30,7 +30,7 @@ export class MinioMediaFileStorageAdapter implements MediaFileStoragePort {
   public async upload(uploadFile: Buffer | Readable, options: MediaFileStorageOptions): Promise<FileMetadata> {
     const uploadDetails: FileUploadDetails = this.defineFileUploadDetails(options.type);
     const bucket: string = uploadDetails.bucket;
-    const key: string    = `${v4()}.${uploadDetails.ext}`;
+    const key: string    = `${uuidv7()}.${uploadDetails.ext}`;
   
     const size = Buffer.isBuffer(uploadFile) ? uploadFile.length : undefined;
     await this.client.putObject(bucket, key, uploadFile, size, {'content-type': uploadDetails.mimitype});

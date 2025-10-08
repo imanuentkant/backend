@@ -1,6 +1,7 @@
 import { Media } from '@core/domain/media/entity/Media';
 import { MediaFileStoragePort } from '@core/domain/media/port/persistence/MediaFileStoragePort';
 import { MediaRepositoryPort } from '@core/domain/media/port/persistence/MediaRepositoryPort';
+import { AsyncPersistencePort } from '@core/common/port/persistence/AsyncPersistencePort';
 import { CreateMediaPort } from '@core/domain/media/port/usecase/CreateMediaPort';
 import { CreateMediaUseCase } from '@core/domain/media/usecase/CreateMediaUseCase';
 import { MediaUseCaseDto } from '@core/domain/media/usecase/dto/MediaUseCaseDto';
@@ -11,6 +12,7 @@ export class CreateMediaService implements CreateMediaUseCase {
   constructor(
     private readonly mediaRepository: MediaRepositoryPort,
     private readonly mediaFileStorage: MediaFileStoragePort,
+    private readonly asyncPersistence: AsyncPersistencePort,
   ) {}
   
   public async execute(payload: CreateMediaPort): Promise<MediaUseCaseDto> {
@@ -22,8 +24,26 @@ export class CreateMediaService implements CreateMediaUseCase {
       metadata: fileMetaData,
     });
     
-    await this.mediaRepository.addMedia(media);
+    await this.asyncPersistence.enqueue({ entity: 'media', action: 'create', payload: TypeSafeMedia.toPersistencePayload(media) });
     return MediaUseCaseDto.newFromMedia(media);
   }
   
+}
+
+class TypeSafeMedia {
+  static toPersistencePayload(media: Media) {
+    return {
+      id: media.getId(),
+      ownerId: media.getOwnerId(),
+      name: media.getName(),
+      type: media.getType(),
+      relativePath: media.getMetadata().relativePath,
+      size: media.getMetadata().size,
+      ext: media.getMetadata().ext,
+      mimetype: media.getMetadata().mimetype,
+      createdAt: media.getCreatedAt(),
+      editedAt: media.getEditedAt(),
+      removedAt: media.getRemovedAt(),
+    };
+  }
 }

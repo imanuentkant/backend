@@ -39,19 +39,19 @@ const useCaseProviders: Provider[] = [
   // Existing use cases
   {
     provide: PostDITokens.CreatePostUseCase,
-    useFactory: (postRepository, queryBus) => {
-      const service: CreatePostUseCase = new CreatePostService(postRepository, queryBus);
+    useFactory: (postRepository, queryBus, asyncPersistence) => {
+      const service: CreatePostUseCase = new CreatePostService(postRepository, queryBus, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject: [PostDITokens.PostRepository, CoreDITokens.QueryBus]
+    inject: [PostDITokens.PostRepository, CoreDITokens.QueryBus, CoreDITokens.AsyncPersistence]
   },
   {
     provide: PostDITokens.EditPostUseCase,
-    useFactory: (postRepository, queryBus) => {
-      const service: EditPostUseCase = new EditPostService(postRepository, queryBus);
+    useFactory: (postRepository, queryBus, asyncPersistence) => {
+      const service: EditPostUseCase = new EditPostService(postRepository, queryBus, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject: [PostDITokens.PostRepository, CoreDITokens.QueryBus]
+    inject: [PostDITokens.PostRepository, CoreDITokens.QueryBus, CoreDITokens.AsyncPersistence]
   },
   {
     provide: PostDITokens.GetPostListUseCase,
@@ -65,45 +65,45 @@ const useCaseProviders: Provider[] = [
   },
   {
     provide: PostDITokens.PublishPostUseCase,
-    useFactory: (postRepository) => {
-      const service: PublishPostUseCase = new PublishPostService(postRepository);
+    useFactory: (postRepository, asyncPersistence, queryBus) => {
+      const service: PublishPostUseCase = new PublishPostService(postRepository, asyncPersistence, queryBus);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject: [PostDITokens.PostRepository]
+    inject: [PostDITokens.PostRepository, CoreDITokens.AsyncPersistence, CoreDITokens.QueryBus]
   },
   {
     provide: PostDITokens.RemovePostUseCase,
-    useFactory: (postRepository) => {
-      const service: RemovePostUseCase = new RemovePostService(postRepository);
+    useFactory: (postRepository, asyncPersistence) => {
+      const service: RemovePostUseCase = new RemovePostService(postRepository, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject: [PostDITokens.PostRepository]
+    inject: [PostDITokens.PostRepository, CoreDITokens.AsyncPersistence]
   },
 
   // New Media Management Use Cases
   {
     provide: PostDITokens.AddPostMediaUseCase,
-    useFactory: (postRepository, queryBus) => {
-      const service: AddPostMediaUseCase = new AddPostMediaService(postRepository, queryBus);
+    useFactory: (postRepository, queryBus, asyncPersistence) => {
+      const service: AddPostMediaUseCase = new AddPostMediaService(postRepository, queryBus, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject: [PostDITokens.PostRepository, CoreDITokens.QueryBus]
+    inject: [PostDITokens.PostRepository, CoreDITokens.QueryBus, CoreDITokens.AsyncPersistence]
   },
   {
     provide: PostDITokens.RemovePostMediaUseCase,
-    useFactory: (postRepository) => {
-      const service: RemovePostMediaUseCase = new RemovePostMediaService(postRepository);
+    useFactory: (postRepository, asyncPersistence) => {
+      const service: RemovePostMediaUseCase = new RemovePostMediaService(postRepository, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject: [PostDITokens.PostRepository]
+    inject: [PostDITokens.PostRepository, CoreDITokens.AsyncPersistence]
   },
   {
     provide: PostDITokens.ReorderPostMediaUseCase,
-    useFactory: (postRepository) => {
-      const service: ReorderPostMediaUseCase = new ReorderPostMediaService(postRepository);
+    useFactory: (postRepository, asyncPersistence) => {
+      const service: ReorderPostMediaUseCase = new ReorderPostMediaService(postRepository, asyncPersistence);
       return new TransactionalUseCaseWrapper(service);
     },
-    inject: [PostDITokens.PostRepository]
+    inject: [PostDITokens.PostRepository, CoreDITokens.AsyncPersistence]
   }
 ];
 

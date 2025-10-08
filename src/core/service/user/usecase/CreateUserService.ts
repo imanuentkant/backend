@@ -2,6 +2,7 @@ import { Code } from '@core/common/code/Code';
 import { Exception } from '@core/common/exception/Exception';
 import { CoreAssert } from '@core/common/util/assert/CoreAssert';
 import { User } from '@core/domain/user/entity/User';
+import { AsyncPersistencePort } from '@core/common/port/persistence/AsyncPersistencePort';
 import { UserRepositoryPort } from '@core/domain/user/port/persistence/UserRepositoryPort';
 import { CreateUserPort } from '@core/domain/user/port/usecase/CreateUserPort';
 import { CreateUserUseCase } from '@core/domain/user/usecase/CreateUserUseCase';
@@ -11,6 +12,7 @@ export class CreateUserService implements CreateUserUseCase {
   
   constructor(
     private readonly userRepository: UserRepositoryPort,
+    private readonly asyncPersistence: AsyncPersistencePort,
   ) {}
   
   public async execute(payload: CreateUserPort): Promise<UserUseCaseDto> {
@@ -25,9 +27,30 @@ export class CreateUserService implements CreateUserUseCase {
       password: payload.password,
     });
     
-    await this.userRepository.addUser(user);
+    await this.asyncPersistence.enqueue({
+      entity: 'user',
+      action: 'create',
+      payload: TypeSafeUser.toPersistencePayload(user),
+    });
     
     return UserUseCaseDto.newFromUser(user);
   }
   
+}
+
+// helper để tránh lộ entity ra khỏi core service
+class TypeSafeUser {
+  static toPersistencePayload(user: User) {
+    return {
+      id: user.getId(),
+      firstName: (user as any).firstName,
+      lastName: (user as any).lastName,
+      email: user.getEmail(),
+      role: user.getRole(),
+      password: user.getPassword(),
+      createdAt: user.getCreatedAt(),
+      editedAt: user.getEditedAt(),
+      removedAt: user.getRemovedAt(),
+    };
+  }
 }

@@ -5,7 +5,7 @@ import { Nullable, Optional } from '@core/common/type/CommonTypes';
 import { PostImage } from '@core/domain/post/entity/PostImage';
 import { PostOwner } from '@core/domain/post/entity/PostOwner';
 import { PostMediaCollection } from '@core/domain/post/entity/PostMedia';
-import { v4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 
 export type CreatePostEntityPayload = {
   owner: PostOwner;
@@ -37,7 +37,7 @@ export class Post extends Entity<string> {
   constructor(payload: CreatePostEntityPayload) {
     super();
 
-    this.id = payload.id || v4();
+    this.id = payload.id || uuidv7();
     this.owner = payload.owner;
     this.title = payload.title;
     this.content = payload.content || null;

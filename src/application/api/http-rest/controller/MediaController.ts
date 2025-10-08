@@ -65,7 +65,7 @@ export class MediaController {
   }
 
   @Post()
-  @HttpAuth(UserRole.ADMIN, UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiBearerAuth()
@@ -92,7 +92,7 @@ export class MediaController {
   }
 
   @Put(':mediaId')
-  @HttpAuth(UserRole.ADMIN, UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiBody({type: HttpRestApiModelEditMediaBody})
@@ -117,7 +117,7 @@ export class MediaController {
   }
 
   @Get()
-  @HttpAuth(UserRole.ADMIN, UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MOD, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK, type: HttpRestApiResponseMediaList})
@@ -130,7 +130,7 @@ export class MediaController {
   }
 
   @Get(':mediaId')
-  @HttpAuth(UserRole.ADMIN, UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MOD, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK, type: HttpRestApiResponseMedia})
@@ -143,7 +143,7 @@ export class MediaController {
   }
 
   @Delete(':mediaId')
-  @HttpAuth(UserRole.ADMIN, UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK, type: HttpRestApiResponseMedia})

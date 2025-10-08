@@ -48,7 +48,7 @@ export class UserController {
   @Get('me')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @HttpAuth(UserRole.AUTHOR, UserRole.ADMIN, UserRole.GUEST)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MOD, UserRole.PARTNER, UserRole.USER, UserRole.GUEST)
   @ApiResponse({status: HttpStatus.OK, type: HttpRestApiResponseUser})
   public async getMe(@HttpUser() httpUser: HttpUserPayload): Promise<CoreApiResponse<UserUseCaseDto>> {
     const adapter: GetUserAdapter = await GetUserAdapter.new({userId: httpUser.id});

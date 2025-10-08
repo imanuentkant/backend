@@ -4,8 +4,7 @@ services:
 
   postgresql_local:
     build: docker/postgres/.
-    env_file:
-      - env/local.pg.env
+    env_file: env/local.env
     ports:
       - '5454:5432'
     networks:
@@ -16,8 +15,7 @@ services:
   minio_local:
     image: minio/minio
     command: server /export --console-address ":9001"
-    env_file:
-      - env/local.minio.env
+    env_file: env/local.env
     ports:
       - '9000:9000'
       - '9001:9001'
@@ -26,9 +24,30 @@ services:
     volumes:
       - minio_data_local:/export
 
+  mongo_local:
+    image: mongo:6
+    ports:
+      - '27017:27017'
+    networks:
+      - iposter_network_local
+    volumes:
+      - mongo_data_local:/data/db
+
+  redis_local:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - '6380:6379'
+    networks:
+      - iposter_network_local
+    volumes:
+      - redis_data_local:/data
+
 volumes:
   pg_data_local:
   minio_data_local:
+  mongo_data_local:
+  redis_data_local:
 
 networks:
   iposter_network_local:

@@ -5,6 +5,7 @@ import { EventBusPort } from '@core/common/port/message/EventBusPort';
 import { CoreAssert } from '@core/common/util/assert/CoreAssert';
 import { Media } from '@core/domain/media/entity/Media';
 import { MediaRepositoryPort } from '@core/domain/media/port/persistence/MediaRepositoryPort';
+import { AsyncPersistencePort } from '@core/common/port/persistence/AsyncPersistencePort';
 import { RemoveMediaPort } from '@core/domain/media/port/usecase/RemoveMediaPort';
 import { RemoveMediaUseCase } from '@core/domain/media/usecase/RemoveMediaUseCase';
 
@@ -13,6 +14,7 @@ export class RemoveMediaService implements RemoveMediaUseCase {
   constructor(
     private readonly mediaRepository: MediaRepositoryPort,
     private readonly eventBus: EventBusPort,
+    private readonly asyncPersistence: AsyncPersistencePort,
   ) {}
   
   public async execute(payload: RemoveMediaPort): Promise<void> {
@@ -24,7 +26,7 @@ export class RemoveMediaService implements RemoveMediaUseCase {
     const hasAccess: boolean = payload.executorId === media.getOwnerId();
     CoreAssert.isTrue(hasAccess, Exception.new({code: Code.ACCESS_DENIED_ERROR}));
     
-    await this.mediaRepository.removeMedia(media);
+    await this.asyncPersistence.enqueue({ entity: 'media', action: 'delete', payload: { id: media.getId() } });
     await this.eventBus.sendEvent(MediaRemovedEvent.new(media.getId(), media.getOwnerId(), media.getType()));
   }
   

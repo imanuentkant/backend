@@ -1,4 +1,8 @@
-#!/usr/bin/env sh
+# #!/usr/bin/env sh
 # . "$(dirname "$0")/_/husky.sh"
 
-# npx --no-install lint-staged
+# # Temporarily disabled for pushing Airbnb features
+# # npx --no-install lint-staged
+
+# echo "Pre-commit hook disabled temporarily"
+# exit 0

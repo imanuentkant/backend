@@ -6,7 +6,7 @@ import { CreateMediaEntityPayload } from '@core/domain/media/entity/type/CreateM
 import { EditMediaEntityPayload } from '@core/domain/media/entity/type/EditMediaEntityPayload';
 import { FileMetadata } from '@core/domain/media/value-object/FileMetadata';
 import { IsDate, IsEnum, IsInstance, IsOptional, IsString, IsUUID } from 'class-validator';
-import { v4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 
 export class Media extends Entity<string> implements RemovableEntity {
   
@@ -41,7 +41,7 @@ export class Media extends Entity<string> implements RemovableEntity {
     this.type      = payload.type;
     this.metadata  = payload.metadata;
     
-    this.id        = payload.id || v4();
+    this.id        = payload.id || uuidv7();
     this.createdAt = payload.createdAt || new Date();
     this.editedAt  = payload.editedAt || null;
     this.removedAt = payload.removedAt || null;

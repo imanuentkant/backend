@@ -6,6 +6,7 @@ import { GetUserService } from '@core/service/user/usecase/GetUserService';
 import { TypeOrmUserRepositoryAdapter } from '@infrastructure/adapter/persistence/typeorm/repository/user/TypeOrmUserRepositoryAdapter';
 import { NestWrapperGetUserPreviewQueryHandler } from '@infrastructure/handler/user/NestWrapperGetUserPreviewQueryHandler';
 import { Module, Provider } from '@nestjs/common';
+import { CoreDITokens } from '@core/common/di/CoreDITokens';
 import { DataSource } from 'typeorm';
 import { TypeOrmUser } from '@infrastructure/adapter/persistence/typeorm/entity/user/TypeOrmUser';
 import {AuthModule} from "@application/di/AuthModule";
@@ -21,8 +22,8 @@ const persistenceProviders: Provider[] = [
 const useCaseProviders: Provider[] = [
   {
     provide   : UserDITokens.CreateUserUseCase,
-    useFactory: (userRepository) => new CreateUserService(userRepository),
-    inject    : [UserDITokens.UserRepository]
+    useFactory: (userRepository, asyncPersistence) => new CreateUserService(userRepository, asyncPersistence),
+    inject    : [UserDITokens.UserRepository, CoreDITokens.AsyncPersistence]
   },
   {
     provide   : UserDITokens.GetUserUseCase,
@@ -41,7 +42,10 @@ const handlerProviders: Provider[] = [
 ];
 
 @Module({
-  imports: [],
+  imports: [
+    // đảm bảo provider Global đã sẵn sàng
+    // (InfrastructureModule đã @Global nhưng import thêm để chắc scope)
+  ],
   controllers: [
     UserController
   ],

@@ -4,8 +4,7 @@ services:
 
   postgresql_test:
     build: docker/postgres/.
-    env_file:
-      - env/test.pg.env
+    env_file: env/test.env
     ports:
       - '5455:5432'
     networks:
@@ -17,8 +16,7 @@ services:
     image: minio/minio
     entrypoint: sh
     command: -c 'mkdir -p /export/images && minio server /export'
-    env_file:
-      - env/test.minio.env
+    env_file: env/test.env
     ports:
       - '9001:9000'
     networks:

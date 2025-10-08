@@ -11,12 +11,14 @@ import { PostRepositoryPort } from '@core/domain/post/port/persistence/PostRepos
 import { EditPostPort } from '@core/domain/post/port/usecase/EditPostPort';
 import { PostUseCaseDto } from '@core/domain/post/usecase/dto/PostUseCaseDto';
 import { EditPostUseCase } from '@core/domain/post/usecase/EditPostUseCase';
+import { AsyncPersistencePort } from '@core/common/port/persistence/AsyncPersistencePort';
 
 export class EditPostService implements EditPostUseCase {
   
   constructor(
     private readonly postRepository: PostRepositoryPort,
     private readonly queryBus: QueryBusPort,
+    private readonly asyncPersistence: AsyncPersistencePort,
   ) {}
   
   public async execute(payload: EditPostPort): Promise<PostUseCaseDto> {
@@ -33,7 +35,22 @@ export class EditPostService implements EditPostUseCase {
       payload.content !== undefined ? payload.content! : post.getContent() ?? undefined
     );
     
-    await this.postRepository.updatePost(post);
+    await this.asyncPersistence.enqueue({
+      entity: 'post',
+      action: 'update',
+      payload: {
+        id: post.getId(),
+        ownerId: post.getOwner().getId(),
+        title: post.getTitle(),
+        imageId: post.getImage()?.getId() || null,
+        content: post.getContent(),
+        status: post.getStatus(),
+        createdAt: post.getCreatedAt(),
+        editedAt: post.getEditedAt(),
+        publishedAt: post.getPublishedAt(),
+        removedAt: post.getRemovedAt(),
+      }
+    });
     
     return {
       id: post.getId(),

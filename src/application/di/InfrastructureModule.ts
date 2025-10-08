@@ -7,6 +7,13 @@ import { NestQueryBusAdapter } from '@infrastructure/adapter/message/NestQueryBu
 import { TypeOrmLogger } from '@infrastructure/adapter/persistence/typeorm/logger/TypeOrmLogger';
 import { TypeOrmDirectory } from '@infrastructure/adapter/persistence/typeorm/TypeOrmDirectory';
 import { Global, Module, OnApplicationBootstrap, Provider } from '@nestjs/common';
+import { MongoAuditProvider, MONGO_AUDIT_COLLECTION } from '@infrastructure/adapter/persistence/mongo/MongoAuditProvider';
+import { AuditLogQueueProvider } from '@infrastructure/adapter/message/queue/AuditLogQueue';
+import { AuditLogWorker } from '@infrastructure/adapter/message/queue/AuditLogWorker';
+import { RedisAuditLogAsyncAppenderAdapter } from '@infrastructure/adapter/logger/RedisAuditLogAsyncAppenderAdapter';
+import { AsyncPersistenceQueueProvider } from '@infrastructure/adapter/message/queue/AsyncPersistenceQueue';
+import { AsyncPersistenceWorker } from '@infrastructure/adapter/message/queue/AsyncPersistenceWorker';
+import { AsyncPersistenceQueueAdapter } from '@infrastructure/adapter/persistence/queue/AsyncPersistenceQueueAdapter';
 import { ModuleRef } from '@nestjs/core';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -35,7 +42,19 @@ const providers: Provider[] = [
   {
     provide : APP_INTERCEPTOR,
     useClass: NestHttpLoggingInterceptor,
-  }
+  },
+  AuditLogQueueProvider,
+  AuditLogWorker,
+  AsyncPersistenceQueueProvider,
+  AsyncPersistenceWorker,
+  {
+    provide: CoreDITokens.AsyncPersistence,
+    useClass: AsyncPersistenceQueueAdapter,
+  },
+  {
+    provide: CoreDITokens.AuditLogAsyncAppender,
+    useClass: RedisAuditLogAsyncAppenderAdapter,
+  },
 ];
 
 
@@ -67,6 +86,7 @@ const providers: Provider[] = [
     CoreDITokens.CommandBus,
     CoreDITokens.QueryBus,
     CoreDITokens.EventBus,
+    CoreDITokens.AsyncPersistence,
     TypeOrmModule,
   ]
 })

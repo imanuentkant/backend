@@ -20,7 +20,7 @@ export class CreateUserAdapter extends UseCaseValidatableAdapter implements Crea
   public email: string;
   
   @Expose()
-  @IsIn([UserRole.AUTHOR, UserRole.GUEST])
+  @IsIn([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MOD, UserRole.PARTNER, UserRole.USER, UserRole.GUEST])
   public role: UserRole;
   
   @Expose()

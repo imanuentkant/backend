@@ -68,7 +68,7 @@ export class PostController {
   ) {}
 
   @Post()
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiBody({type: HttpRestApiModelCreatePostBody})
@@ -90,7 +90,7 @@ export class PostController {
   }
 
   @Put(':postId')
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiBody({type: HttpRestApiModelEditPostBody})
@@ -118,7 +118,7 @@ export class PostController {
   }
 
   @Get()
-  @HttpAuth(UserRole.AUTHOR, UserRole.ADMIN, UserRole.GUEST)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MOD, UserRole.USER, UserRole.GUEST)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiQuery({name: 'authorId', type: 'string', required: false})
@@ -140,7 +140,7 @@ export class PostController {
   }
 
   @Get('mine')
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK, type: HttpRestApiResponsePostList})
@@ -156,7 +156,7 @@ export class PostController {
   }
 
   @Get(':postId')
-  @HttpAuth(UserRole.AUTHOR, UserRole.ADMIN, UserRole.GUEST)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MOD, UserRole.USER, UserRole.GUEST)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK, type: HttpRestApiResponsePost})
@@ -169,7 +169,7 @@ export class PostController {
   }
 
   @Post(':postId/publish')
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MOD)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK, type: HttpRestApiResponsePost})
@@ -182,7 +182,7 @@ export class PostController {
   }
 
   @Delete(':postId')
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK})
@@ -195,7 +195,7 @@ export class PostController {
 
   // New endpoints for media management
   @Post(':postId/media')
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiBody({
@@ -229,7 +229,7 @@ export class PostController {
   }
 
   @Delete(':postId/media/:mediaId')
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiResponse({status: HttpStatus.OK})
@@ -250,7 +250,7 @@ export class PostController {
   }
 
   @Put(':postId/media/reorder')
-  @HttpAuth(UserRole.AUTHOR)
+  @HttpAuth(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PARTNER)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiBody({
