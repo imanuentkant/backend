@@ -10,21 +10,29 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
+  Inject,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
 import { UploadPhotoDto, ReorderPhotosDto, UpdatePhotoDto } from '@application/api/http-rest/dto/property/UploadPhotoDto';
+import { CoreDITokens } from '@core/common/di/CoreDITokens';
+import { FileStoragePort } from '@core/common/port/storage/FileStoragePort';
 import { v4 as uuid } from 'uuid';
 
 /**
  * Property Photo Controller - Photo management for properties
+ * Sử dụng FileStoragePort abstraction - dễ dàng switch storage provider
  */
 @Controller('api/properties/:propertyId/photos')
 @ApiTags('Property Photos')
 @UseGuards(HttpJwtAuthGuard)
 @ApiBearerAuth()
 export class PropertyPhotoController {
+  
+  constructor(
+    @Inject(CoreDITokens.FileStorage) private readonly fileStorage: FileStoragePort,
+  ) {}
   
   /**
    * Upload photo to property
@@ -57,27 +65,50 @@ export class PropertyPhotoController {
     @Body() dto: Partial<UploadPhotoDto>,
     @Req() request: any,
   ) {
-    // Real implementation:
-    // 1. Upload file to S3/MinIO
-    // 2. Get URL
-    // 3. Create PropertyPhoto entity
-    // 4. Save to database
-    
-    // Mock response
     const photoId = uuid();
-    const photoUrl = `https://cdn.yourdomain.com/properties/${propertyId}/${photoId}.jpg`;
+    const filename = `properties/${propertyId}/${photoId}-${file.originalname}`;
+    
+    // Upload file sử dụng FileStoragePort abstraction
+    // Hiện tại: MinIO
+    // Tương lai: Chỉ cần đổi FILE_STORAGE_PROVIDER=s3 trong env
+    const uploadResult = await this.fileStorage.upload({
+      bucket: 'property-photos',
+      filename,
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      metadata: {
+        propertyId,
+        photoId,
+        uploadedBy: request.user.id,
+      },
+    });
+    
+    // TODO: Save PropertyPhoto entity to database
+    // const photo = await PropertyPhoto.new({
+    //   propertyId,
+    //   mediaId: photoId,
+    //   url: uploadResult.url,
+    //   orderIndex: dto.orderIndex || 0,
+    // });
+    // await this.propertyPhotoRepository.save(photo);
     
     return {
       id: photoId,
       propertyId,
-      url: photoUrl,
+      url: uploadResult.url,
       isCover: dto.isCover || false,
       caption: dto.caption,
-      orderIndex: 0,
-      size: file?.size || 0,
-      filename: file?.originalname || 'photo.jpg',
+      orderIndex: dto.orderIndex || 0,
+      size: uploadResult.size,
+      filename: file.originalname,
+      contentType: file.mimetype,
       uploadedAt: new Date(),
       message: 'Photo uploaded successfully',
+      storage: {
+        provider: 'current', // MinIO hiện tại, S3/GCS tương lai
+        bucket: uploadResult.bucket,
+        key: uploadResult.key,
+      },
     };
   }
   
