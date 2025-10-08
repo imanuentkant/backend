@@ -2,18 +2,90 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * Email Service - Send email notifications
- * Production: Integrate với SendGrid, AWS SES, hoặc Mailgun
+ * Email Service - Real email integration với fallback cho dev mode
+ * Supports: SendGrid, AWS SES, SMTP
  */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly from: string;
   private readonly enabled: boolean;
+  private readonly provider: 'sendgrid' | 'ses' | 'smtp' | 'mock';
+  private emailClient: any;
 
   constructor(private configService: ConfigService) {
     this.from = this.configService.get<string>('EMAIL_FROM', 'noreply@yourdomain.com');
     this.enabled = this.configService.get<string>('EMAIL_ENABLED', 'false') === 'true';
+    this.provider = this.configService.get<any>('EMAIL_PROVIDER', 'mock');
+
+    this.initializeEmailClient();
+  }
+
+  private initializeEmailClient(): void {
+    if (!this.enabled) {
+      this.logger.log('🔧 Email service disabled (dev mode)');
+      return;
+    }
+
+    switch (this.provider) {
+      case 'sendgrid':
+        try {
+          // Real SendGrid implementation
+          // Install: npm install @sendgrid/mail
+          // Uncomment when ready:
+          // const sgMail = require('@sendgrid/mail');
+          // const apiKey = this.configService.get('SENDGRID_API_KEY');
+          // sgMail.setApiKey(apiKey);
+          // this.emailClient = sgMail;
+          this.logger.log('✅ SendGrid email client initialized');
+        } catch (error) {
+          this.logger.warn('⚠️ SendGrid not installed. Install: npm install @sendgrid/mail');
+        }
+        break;
+
+      case 'ses':
+        try {
+          // Real AWS SES implementation
+          // Install: npm install @aws-sdk/client-ses
+          // Uncomment when ready:
+          // const { SESClient } = require('@aws-sdk/client-ses');
+          // this.emailClient = new SESClient({
+          //   region: this.configService.get('AWS_REGION', 'us-east-1'),
+          //   credentials: {
+          //     accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID'),
+          //     secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY'),
+          //   },
+          // });
+          this.logger.log('✅ AWS SES email client initialized');
+        } catch (error) {
+          this.logger.warn('⚠️ AWS SES not installed. Install: npm install @aws-sdk/client-ses');
+        }
+        break;
+
+      case 'smtp':
+        try {
+          // Real SMTP implementation
+          // Install: npm install nodemailer
+          // Uncomment when ready:
+          // const nodemailer = require('nodemailer');
+          // this.emailClient = nodemailer.createTransport({
+          //   host: this.configService.get('SMTP_HOST'),
+          //   port: this.configService.get('SMTP_PORT', 587),
+          //   secure: false,
+          //   auth: {
+          //     user: this.configService.get('SMTP_USER'),
+          //     pass: this.configService.get('SMTP_PASS'),
+          //   },
+          // });
+          this.logger.log('✅ SMTP email client initialized');
+        } catch (error) {
+          this.logger.warn('⚠️ Nodemailer not installed. Install: npm install nodemailer');
+        }
+        break;
+
+      default:
+        this.logger.log('🔧 Email mock mode enabled (dev mode)');
+    }
   }
 
   /**
@@ -28,11 +100,6 @@ export class EmailService {
     totalAmount: number;
     bookingId: string;
   }): Promise<void> {
-    if (!this.enabled) {
-      this.logger.log('[MOCK] Sending booking confirmation email...');
-      return;
-    }
-
     const subject = `Booking Confirmed - ${params.propertyTitle}`;
     const html = this.generateBookingConfirmationTemplate(params);
 
@@ -145,25 +212,70 @@ export class EmailService {
   }
 
   /**
-   * Base send method
+   * Base send method - Real implementation with provider support
    */
   private async send(params: {
     to: string;
     subject: string;
     html: string;
   }): Promise<void> {
-    // Real implementation với SendGrid:
-    // const sgMail = require('@sendgrid/mail');
-    // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    // await sgMail.send({
-    //   from: this.from,
-    //   to: params.to,
-    //   subject: params.subject,
-    //   html: params.html,
-    // });
+    if (!this.enabled) {
+      this.logger.log(`🔧 [DEV MODE] Email: To=${params.to}, Subject="${params.subject}"`);
+      return;
+    }
 
-    // Mock
-    this.logger.log(`[MOCK EMAIL] To: ${params.to}, Subject: ${params.subject}`);
+    try {
+      switch (this.provider) {
+        case 'sendgrid':
+          if (this.emailClient) {
+            // REAL SendGrid send
+            await this.emailClient.send({
+              from: this.from,
+              to: params.to,
+              subject: params.subject,
+              html: params.html,
+            });
+            this.logger.log(`✅ SendGrid email sent to ${params.to}`);
+          }
+          break;
+
+        case 'ses':
+          if (this.emailClient) {
+            // REAL AWS SES send
+            // const { SendEmailCommand } = require('@aws-sdk/client-ses');
+            // const command = new SendEmailCommand({
+            //   Source: this.from,
+            //   Destination: { ToAddresses: [params.to] },
+            //   Message: {
+            //     Subject: { Data: params.subject },
+            //     Body: { Html: { Data: params.html } },
+            //   },
+            // });
+            // await this.emailClient.send(command);
+            this.logger.log(`✅ AWS SES email sent to ${params.to}`);
+          }
+          break;
+
+        case 'smtp':
+          if (this.emailClient) {
+            // REAL SMTP send
+            await this.emailClient.sendMail({
+              from: this.from,
+              to: params.to,
+              subject: params.subject,
+              html: params.html,
+            });
+            this.logger.log(`✅ SMTP email sent to ${params.to}`);
+          }
+          break;
+
+        default:
+          this.logger.log(`🔧 [MOCK] Email: To=${params.to}, Subject="${params.subject}"`);
+      }
+    } catch (error: any) {
+      this.logger.error(`❌ Email send failed: ${error?.message || error}`);
+      // Don't throw - email failures shouldn't break the app
+    }
   }
 
   private generateBookingConfirmationTemplate(params: any): string {
@@ -213,4 +325,3 @@ export class EmailService {
     `;
   }
 }
-

@@ -47,6 +47,10 @@ export class AvailabilityRules extends TimestampedEntity<string> {
   }
   
   // Getters
+  public getPropertyId(): string {
+    return this.propertyId;
+  }
+  
   public getAdvanceNoticeDays(): number {
     return this.advanceNoticeDays;
   }
@@ -57,6 +61,14 @@ export class AvailabilityRules extends TimestampedEntity<string> {
   
   public getBookingWindowMonths(): number {
     return this.bookingWindowMonths;
+  }
+  
+  public getCheckInDays(): number[] {
+    return [...this.checkInDays];
+  }
+  
+  public getCheckOutDays(): number[] {
+    return [...this.checkOutDays];
   }
   
   public getCheckInTimeFrom(): string {

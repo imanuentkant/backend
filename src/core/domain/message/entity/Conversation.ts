@@ -1,119 +1,91 @@
 import { TimestampedEntity } from '@core/common/entity/TimestampedEntity';
+import { BookableItemType } from '@core/common/entity/BookableItem';
 
 export class Conversation extends TimestampedEntity<string> {
   
-  private propertyId: string;
-  private bookingId?: string;
+  private bookableType: BookableItemType;
+  private bookableId: string;
+  private propertyId?: string; // Backward compatibility
   private guestId: string;
   private hostId: string;
+  private lastMessageId?: string;
   private lastMessageAt?: Date;
-  private unreadCountGuest: number;
-  private unreadCountHost: number;
+  private unreadCount: number;
   
   constructor(payload: {
     id?: string,
-    propertyId: string,
-    bookingId?: string,
+    bookableType: BookableItemType,
+    bookableId: string,
+    propertyId?: string,
     guestId: string,
     hostId: string,
+    lastMessageId?: string,
     lastMessageAt?: Date,
-    unreadCountGuest?: number,
-    unreadCountHost?: number,
+    unreadCount?: number,
     createdAt?: Date,
     updatedAt?: Date,
   }) {
     super(payload.id, payload.createdAt, payload.updatedAt);
+    this.bookableType = payload.bookableType;
+    this.bookableId = payload.bookableId;
     this.propertyId = payload.propertyId;
-    this.bookingId = payload.bookingId;
     this.guestId = payload.guestId;
     this.hostId = payload.hostId;
+    this.lastMessageId = payload.lastMessageId;
     this.lastMessageAt = payload.lastMessageAt;
-    this.unreadCountGuest = payload.unreadCountGuest || 0;
-    this.unreadCountHost = payload.unreadCountHost || 0;
+    this.unreadCount = payload.unreadCount || 0;
   }
   
   public static async new(payload: {
-    propertyId: string,
-    bookingId?: string,
+    bookableType: BookableItemType,
+    bookableId: string,
+    propertyId?: string,
     guestId: string,
     hostId: string,
   }): Promise<Conversation> {
-    return new Conversation(payload);
+    const conversation = new Conversation({
+      ...payload,
+      unreadCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    
+    await conversation.validate();
+    return conversation;
   }
   
-  // Getters
-  public getPropertyId(): string {
-    return this.propertyId;
-  }
-  
-  public getBookingId(): string | undefined {
-    return this.bookingId;
-  }
-  
-  public getGuestId(): string {
-    return this.guestId;
-  }
-  
-  public getHostId(): string {
-    return this.hostId;
-  }
-  
-  public getLastMessageAt(): Date | undefined {
-    return this.lastMessageAt;
-  }
-  
-  public getUnreadCountForUser(userId: string): number {
-    if (userId === this.guestId) {
-      return this.unreadCountGuest;
+  public async validate(): Promise<void> {
+    if (!this.guestId || !this.hostId) {
+      throw new Error('Conversation must have both guest and host');
     }
-    if (userId === this.hostId) {
-      return this.unreadCountHost;
+    if (this.guestId === this.hostId) {
+      throw new Error('Guest and host cannot be the same user');
     }
-    return 0;
   }
   
-  // Methods
-  public updateLastMessage(messageDate: Date): void {
+  public updateLastMessage(messageId: string, messageDate: Date): void {
+    this.lastMessageId = messageId;
     this.lastMessageAt = messageDate;
     this.updateUpdatedAt();
   }
   
-  public incrementUnreadCount(forUserId: string): void {
-    if (forUserId === this.guestId) {
-      this.unreadCountGuest++;
-    } else if (forUserId === this.hostId) {
-      this.unreadCountHost++;
-    }
+  public incrementUnreadCount(): void {
+    this.unreadCount++;
     this.updateUpdatedAt();
   }
   
-  public markAsRead(userId: string): void {
-    if (userId === this.guestId) {
-      this.unreadCountGuest = 0;
-    } else if (userId === this.hostId) {
-      this.unreadCountHost = 0;
-    }
+  public markAsRead(): void {
+    this.unreadCount = 0;
     this.updateUpdatedAt();
   }
   
-  /**
-   * Check if user is participant
-   */
-  public isParticipant(userId: string): boolean {
-    return userId === this.guestId || userId === this.hostId;
-  }
-  
-  /**
-   * Get other participant ID
-   */
-  public getOtherParticipant(userId: string): string | null {
-    if (userId === this.guestId) {
-      return this.hostId;
-    }
-    if (userId === this.hostId) {
-      return this.guestId;
-    }
-    return null;
-  }
+  // Getters
+  public getBookableType(): BookableItemType { return this.bookableType; }
+  public getBookableId(): string { return this.bookableId; }
+  public getPropertyId(): string | undefined { return this.propertyId; }
+  public getGuestId(): string { return this.guestId; }
+  public getHostId(): string { return this.hostId; }
+  public getLastMessageId(): string | undefined { return this.lastMessageId; }
+  public getLastMessageAt(): Date | undefined { return this.lastMessageAt; }
+  public getUnreadCount(): number { return this.unreadCount; }
 }
-

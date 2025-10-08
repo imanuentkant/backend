@@ -89,8 +89,9 @@ export class MessagingWebSocketGateway implements OnGatewayConnection, OnGateway
       createdAt: new Date(),
     };
 
-    // Save to database (mock)
-    this.logger.log(`Message sent: ${message.id}`);
+    // Note: Message persistence is handled through REST API (MessageController)
+    // WebSocket is used for real-time event broadcasting only
+    this.logger.log(`Real-time message event: ${message.id}`);
 
     // Emit to recipient
     this.server.to(`user:${data.recipientId}`).emit('message:received', message);
@@ -121,8 +122,9 @@ export class MessagingWebSocketGateway implements OnGatewayConnection, OnGateway
   ) {
     const userId = client.handshake.query.userId as string;
 
-    // Update message in database (mock)
-    this.logger.log(`Message ${data.messageId} marked as read by ${userId}`);
+    // Note: Message read status is updated through REST API (MessageController)
+    // WebSocket is used for real-time read receipt notifications only
+    this.logger.log(`Real-time read receipt: ${data.messageId} by ${userId}`);
 
     // Notify sender
     const senderId = 'other-user-id'; // Should get from message

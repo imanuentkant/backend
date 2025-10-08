@@ -1,9 +1,22 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req, Headers, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req, Headers, Logger, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
 import { StripePaymentService } from '@infrastructure/adapter/payment/StripePaymentService';
-import { PaymentStatus } from '@core/common/enums/BookingEnums';
-import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
+import { CreatePaymentUseCase } from '@core/service/payment/usecase/CreatePaymentUseCase';
+import { ConfirmPaymentUseCase } from '@core/service/payment/usecase/ConfirmPaymentUseCase';
+import { GetPaymentUseCase } from '@core/service/payment/usecase/GetPaymentUseCase';
+import { CreateRefundUseCase } from '@core/service/payment/usecase/CreateRefundUseCase';
+import { GetTransactionHistoryUseCase } from '@core/service/payment/usecase/GetTransactionHistoryUseCase';
+import { GetHostPayoutsUseCase } from '@core/service/payment/usecase/GetHostPayoutsUseCase';
+import {
+  CreatePaymentIntentResponseDto,
+  ConfirmPaymentResponseDto,
+  PaymentDetailsResponseDto,
+  CreateRefundResponseDto,
+  TransactionHistoryResponseDto,
+  HostPayoutsResponseDto,
+} from '@application/api/http-rest/dto/payment/PaymentResponseDto';
+import { Request } from 'express';
 
 /**
  * Payment Controller - Stripe integration for Airbnb-like payments
@@ -12,7 +25,15 @@ import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 @ApiTags('Payments')
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
-  constructor(private stripeService: StripePaymentService) {}
+  constructor(
+    private stripeService: StripePaymentService,
+    private createPaymentUseCase: CreatePaymentUseCase,
+    private confirmPaymentUseCase: ConfirmPaymentUseCase,
+    private getPaymentUseCase: GetPaymentUseCase,
+    private createRefundUseCase: CreateRefundUseCase,
+    private getTransactionHistoryUseCase: GetTransactionHistoryUseCase,
+    private getHostPayoutsUseCase: GetHostPayoutsUseCase,
+  ) {}
   
   /**
    * Create payment intent for booking
@@ -21,13 +42,13 @@ export class PaymentController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tạo payment intent cho booking' })
-  @ApiResponse({ status: 201, description: 'Payment intent created' })
+  @ApiResponse({ status: 201, description: 'Payment intent created', type: CreatePaymentIntentResponseDto })
   async createPaymentIntent(
-    @Body() body: { bookingId: string; amount: number; currency?: string },
-    @Req() request: any,
-  ) {
-    const { bookingId, amount, currency = 'USD' } = body;
-    const userId = request.user.id;
+    @Body() body: { bookingId: string; amount: number; currency?: string; breakdown: any },
+    @Req() request: Request,
+  ): Promise<CreatePaymentIntentResponseDto> {
+    const { bookingId, amount, currency = 'USD', breakdown } = body;
+    const userId = (request as any).user.id;
 
     // Create payment intent với Stripe
     const intent = await this.stripeService.createPaymentIntent({
@@ -37,6 +58,17 @@ export class PaymentController {
         bookingId,
         userId,
       },
+    });
+
+    // Save payment record to database
+    await this.createPaymentUseCase.execute({
+      bookingId,
+      userId,
+      amount,
+      currency: currency.toUpperCase(),
+      breakdown,
+      paymentMethod: 'stripe',
+      stripePaymentIntentId: intent.id,
     });
 
     return {
@@ -57,21 +89,25 @@ export class PaymentController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xác nhận payment đã thành công' })
-  @ApiResponse({ status: 200, description: 'Payment confirmed' })
-  async confirmPayment(@Param('intentId') intentId: string, @Req() request: any) {
+  @ApiResponse({ status: 200, description: 'Payment confirmed', type: ConfirmPaymentResponseDto })
+  async confirmPayment(@Param('intentId') intentId: string, @Req() request: Request): Promise<ConfirmPaymentResponseDto> {
     const result = await this.stripeService.confirmPaymentIntent(intentId);
 
-    // Save payment record to database
-    // Update booking status to confirmed
-    // Send confirmation email to guest
-    // Notify host
+    // Update payment status in database
+    const payment = await this.confirmPaymentUseCase.execute({
+      stripePaymentIntentId: result.id,
+    });
+
+    // TODO: Update booking status to confirmed
+    // TODO: Send confirmation email to guest
+    // TODO: Notify host
 
     return {
-      paymentId: UuidGenerator.generate(),
+      paymentId: payment.getId(),
       stripePaymentIntentId: result.id,
       amount: result.amount,
-      status: PaymentStatus.COMPLETED,
-      completedAt: new Date(),
+      status: payment.getStatus(),
+      completedAt: payment.getCompletedAt()!,
       message: 'Payment successful! Booking confirmed.',
     };
   }
@@ -83,28 +119,25 @@ export class PaymentController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy chi tiết payment' })
-  @ApiResponse({ status: 200, description: 'Payment details' })
-  async getPayment(@Param('id') id: string, @Req() request: any) {
-    // Mock response
+  @ApiResponse({ status: 200, description: 'Payment details', type: PaymentDetailsResponseDto })
+  async getPayment(@Param('id') id: string, @Req() request: Request): Promise<PaymentDetailsResponseDto> {
+    const userId = (request as any).user.id;
+    const payment = await this.getPaymentUseCase.execute({ paymentId: id, userId });
+
     return {
-      id,
-      bookingId: UuidGenerator.generate(),
-      amount: 476.00,
-      currency: 'USD',
-      status: PaymentStatus.COMPLETED,
-      paymentMethod: 'stripe',
-      breakdown: {
-        subtotal: 400,
-        cleaningFee: 20,
-        serviceFee: 56,
-        total: 476,
-      },
+      id: payment.getId(),
+      bookingId: payment.getBookingId(),
+      amount: payment.getAmount(),
+      currency: payment.getCurrency(),
+      status: payment.getStatus(),
+      paymentMethod: payment.getPaymentMethod(),
+      breakdown: payment.getBreakdown(),
       payer: {
-        id: request.user.id,
-        name: request.user.email,
+        id: payment.getUserId(),
+        name: (request as any).user.email,
       },
-      createdAt: '2025-10-08T10:00:00Z',
-      completedAt: '2025-10-08T10:05:00Z',
+      createdAt: payment.getCreatedAt().toISOString(),
+      completedAt: payment.getCompletedAt()?.toISOString(),
     };
   }
 
@@ -115,34 +148,42 @@ export class PaymentController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Hoàn tiền cho payment' })
-  @ApiResponse({ status: 200, description: 'Refund created' })
+  @ApiResponse({ status: 200, description: 'Refund created', type: CreateRefundResponseDto })
   async createRefund(
     @Param('id') id: string,
     @Body() body: { amount?: number; reason?: string },
-    @Req() request: any,
-  ) {
-    // Get payment record
-    // Check if refund allowed
-    // Create refund với Stripe
+    @Req() request: Request,
+  ): Promise<CreateRefundResponseDto> {
+    const userId = (request as any).user.id;
 
-    const paymentIntentId = 'pi_mock_123'; // Should get from payment record
-    
-    const refund = await this.stripeService.createRefund({
-      paymentIntentId,
+    // Get payment record
+    const payment = await this.getPaymentUseCase.execute({ paymentId: id, userId });
+
+    // Create refund record in database
+    const refundEntity = await this.createRefundUseCase.execute({
+      paymentId: id,
+      userId,
+      amount: body.amount,
+      reason: body.reason,
+    });
+
+    // Create refund với Stripe
+    const stripeRefund = await this.stripeService.createRefund({
+      paymentIntentId: payment.getStripePaymentIntentId()!,
       amount: body.amount,
       reason: body.reason,
     });
 
     return {
-      refundId: refund.id,
+      refundId: refundEntity.getId(),
       paymentId: id,
-      amount: refund.amount,
-      currency: 'USD',
-      status: refund.status,
+      amount: stripeRefund.amount,
+      currency: refundEntity.getCurrency(),
+      status: stripeRefund.status,
       reason: body.reason,
       processedIn: '5-10 business days',
-      createdAt: new Date(),
-      message: `Refund of $${refund.amount} initiated successfully.`,
+      createdAt: refundEntity.getCreatedAt(),
+      message: `Refund of $${stripeRefund.amount} initiated successfully.`,
     };
   }
 
@@ -153,35 +194,34 @@ export class PaymentController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy lịch sử transactions của user' })
-  @ApiResponse({ status: 200, description: 'Transaction history' })
-  async getTransactionHistory(@Req() request: any) {
-    const userId = request.user.id;
+  @ApiResponse({ status: 200, description: 'Transaction history', type: TransactionHistoryResponseDto })
+  async getTransactionHistory(
+    @Req() request: Request,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ): Promise<TransactionHistoryResponseDto> {
+    const userId = (request as any).user.id;
+    const offset = (page - 1) * limit;
 
-    // Mock data
+    const result = await this.getTransactionHistoryUseCase.execute({
+      userId,
+      limit,
+      offset,
+    });
+
     return {
-      data: [
-        {
-          id: UuidGenerator.generate(),
-          type: 'payment',
-          amount: 476.00,
-          currency: 'USD',
-          status: 'completed',
-          description: 'Booking payment for Cozy Apartment',
-          date: '2025-10-01T10:00:00Z',
-        },
-        {
-          id: UuidGenerator.generate(),
-          type: 'refund',
-          amount: 400.00,
-          currency: 'USD',
-          status: 'completed',
-          description: 'Refund for cancelled booking',
-          date: '2025-09-15T14:30:00Z',
-        },
-      ],
+      data: result.data.map((transaction) => ({
+        id: transaction.getId(),
+        type: transaction.getType(),
+        amount: transaction.getAmount(),
+        currency: transaction.getCurrency(),
+        status: transaction.getStatus(),
+        description: transaction.getDescription(),
+        date: transaction.getDate().toISOString(),
+      })),
       meta: {
-        page: 1,
-        total: 2,
+        page,
+        total: result.total,
       },
     };
   }
@@ -193,35 +233,32 @@ export class PaymentController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy danh sách payouts (Host)' })
-  @ApiResponse({ status: 200, description: 'Payout history' })
-  async getHostPayouts(@Req() request: any) {
-    // Mock data
+  @ApiResponse({ status: 200, description: 'Payout history', type: HostPayoutsResponseDto })
+  async getHostPayouts(
+    @Req() request: Request,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ): Promise<HostPayoutsResponseDto> {
+    const hostId = (request as any).user.id;
+    const offset = (page - 1) * limit;
+
+    const result = await this.getHostPayoutsUseCase.execute({
+      hostId,
+      limit,
+      offset,
+    });
+
     return {
-      data: [
-        {
-          id: UuidGenerator.generate(),
-          amount: 1455.00,
-          currency: 'USD',
-          status: 'paid',
-          description: '3 bookings completed',
-          paidAt: '2025-10-01',
-          expectedArrival: '2025-10-08',
-        },
-        {
-          id: UuidGenerator.generate(),
-          amount: 970.00,
-          currency: 'USD',
-          status: 'in_transit',
-          description: '2 bookings completed',
-          expectedArrival: '2025-10-15',
-        },
-      ],
-      summary: {
-        totalEarnings: 5420.00,
-        pendingPayouts: 970.00,
-        availableForPayout: 0,
-        nextPayoutDate: '2025-10-15',
-      },
+      data: result.data.map((payout) => ({
+        id: payout.getId(),
+        amount: payout.getAmount(),
+        currency: payout.getCurrency(),
+        status: payout.getStatus(),
+        description: payout.getDescription(),
+        paidAt: payout.getPaidAt()?.toISOString().split('T')[0],
+        expectedArrival: payout.getExpectedArrivalDate()?.toISOString().split('T')[0],
+      })),
+      summary: result.summary,
     };
   }
 

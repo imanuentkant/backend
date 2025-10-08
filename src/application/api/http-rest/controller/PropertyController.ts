@@ -4,6 +4,14 @@ import { CreatePropertyDto } from '@application/api/http-rest/dto/property/Creat
 import { SearchPropertyDto } from '@application/api/http-rest/dto/property/SearchPropertyDto';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
 import { PropertyType, PropertyStatus } from '@core/common/enums/PropertyEnums';
+import { CreatePropertyUseCase } from '@core/service/property/usecase/CreatePropertyUseCase';
+import { GetPropertyUseCase } from '@core/service/property/usecase/GetPropertyUseCase';
+import { ListPropertiesUseCase } from '@core/service/property/usecase/ListPropertiesUseCase';
+import {
+  CreatePropertyResponseDto,
+  ListPropertiesResponseDto,
+  PropertyDetailResponseDto,
+} from '@application/api/http-rest/dto/property/PropertyResponseDto';
 import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 
 /**
@@ -13,6 +21,12 @@ import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 @ApiTags('Properties')
 export class PropertyController {
   
+  constructor(
+    private readonly createPropertyUseCase: CreatePropertyUseCase,
+    private readonly getPropertyUseCase: GetPropertyUseCase,
+    private readonly listPropertiesUseCase: ListPropertiesUseCase,
+  ) {}
+  
   /**
    * Tạo property listing mới (Host only)
    */
@@ -20,13 +34,14 @@ export class PropertyController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tạo property listing mới' })
-  @ApiResponse({ status: 201, description: 'Property created successfully' })
-  async createProperty(@Body() dto: CreatePropertyDto, @Req() request: any) {
+  @ApiResponse({ status: 201, description: 'Property created successfully', type: CreatePropertyResponseDto })
+  async createProperty(
+    @Body() dto: CreatePropertyDto, 
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<CreatePropertyResponseDto> {
     const hostId = request.user.id;
     
-    // Mock response - sẽ thay bằng use case sau
-    return {
-      id: UuidGenerator.generate(),
+    const property = await this.createPropertyUseCase.execute({
       hostId,
       title: dto.title,
       description: dto.description,
@@ -36,12 +51,12 @@ export class PropertyController {
       beds: dto.beds,
       bathrooms: dto.bathrooms,
       pricePerNight: dto.pricePerNight,
-      currency: 'USD',
+      currency: dto.currency || 'USD',
       cleaningFee: dto.cleaningFee || 0,
+      serviceFeePercentage: dto.serviceFeePercentage || 14,
       minimumNights: dto.minimumNights || 1,
       maximumNights: dto.maximumNights || 365,
       instantBooking: dto.instantBooking || false,
-      status: PropertyStatus.DRAFT,
       location: {
         address: dto.address,
         city: dto.city,
@@ -51,12 +66,35 @@ export class PropertyController {
         latitude: dto.latitude,
         longitude: dto.longitude,
       },
-      amenities: [],
-      photos: [],
-      rating: 0,
-      reviewCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    });
+    
+    return {
+      id: property.getId(),
+      hostId: property.getHostId(),
+      title: property.getTitle(),
+      description: property.getDescription(),
+      propertyType: property.getPropertyType(),
+      maxGuests: property.getMaxGuests(),
+      bedrooms: property.getBedrooms(),
+      beds: property.getBeds(),
+      bathrooms: property.getBathrooms(),
+      pricePerNight: property.getPricePerNight(),
+      currency: property.getCurrency(),
+      cleaningFee: property.getCleaningFee(),
+      minimumNights: property.getMinimumNights(),
+      maximumNights: property.getMaximumNights(),
+      instantBooking: property.isInstantBooking(),
+      status: property.getStatus(),
+      location: property.getLocation() ? {
+        address: property.getLocation()!.getAddress(),
+        city: property.getLocation()!.getCity(),
+        state: property.getLocation()!.getState(),
+        country: property.getLocation()!.getCountry(),
+        postalCode: property.getLocation()!.getPostalCode(),
+        latitude: property.getLocation()!.getLatitude(),
+        longitude: property.getLocation()!.getLongitude(),
+      } : null,
+      createdAt: property.getCreatedAt(),
     };
   }
   
@@ -65,122 +103,61 @@ export class PropertyController {
    */
   @Get()
   @ApiOperation({ summary: 'Search properties' })
-  @ApiResponse({ status: 200, description: 'List of properties' })
-  async searchProperties(@Query() query: SearchPropertyDto) {
-    // Mock data - sẽ thay bằng search use case sau
-    const mockProperties = [
-      {
-        id: UuidGenerator.generate(),
-        title: 'Cozy Apartment in City Center',
-        description: 'Beautiful modern apartment with stunning city views. Perfect for couples or small families. Walking distance to major attractions.',
-        propertyType: PropertyType.APARTMENT,
-        maxGuests: 4,
-        bedrooms: 2,
-        beds: 2,
-        bathrooms: 1,
-        pricePerNight: 100,
-        currency: 'USD',
-        cleaningFee: 20,
-        status: PropertyStatus.ACTIVE,
-        location: {
-          city: 'Ho Chi Minh City',
-          state: 'Ho Chi Minh',
-          country: 'Vietnam',
-          latitude: 10.8231,
-          longitude: 106.6297,
-        },
-        amenities: ['WiFi', 'Kitchen', 'Air Conditioning', 'TV', 'Washing Machine'],
-        coverPhoto: 'https://via.placeholder.com/800x600',
-        rating: 4.8,
-        reviewCount: 24,
-        instantBooking: true,
-      },
-      {
-        id: UuidGenerator.generate(),
-        title: 'Luxury Villa with Private Pool',
-        description: 'Stunning villa with private pool and garden. 5 minutes from beach. Perfect for families and groups.',
-        propertyType: PropertyType.VILLA,
-        maxGuests: 8,
-        bedrooms: 4,
-        beds: 5,
-        bathrooms: 3,
-        pricePerNight: 300,
-        currency: 'USD',
-        cleaningFee: 50,
-        status: PropertyStatus.ACTIVE,
-        location: {
-          city: 'Da Nang',
-          state: 'Da Nang',
-          country: 'Vietnam',
-          latitude: 16.0544,
-          longitude: 108.2022,
-        },
-        amenities: ['WiFi', 'Kitchen', 'Pool', 'Garden', 'BBQ', 'Parking'],
-        coverPhoto: 'https://via.placeholder.com/800x600',
-        rating: 4.9,
-        reviewCount: 42,
-        instantBooking: false,
-      },
-      {
-        id: UuidGenerator.generate(),
-        title: 'Charming House near Beach',
-        description: 'Comfortable house with sea view. 2 minutes walk to the beach. Ideal for beach lovers.',
-        propertyType: PropertyType.HOUSE,
-        maxGuests: 6,
-        bedrooms: 3,
-        beds: 4,
-        bathrooms: 2,
-        pricePerNight: 150,
-        currency: 'USD',
-        cleaningFee: 30,
-        status: PropertyStatus.ACTIVE,
-        location: {
-          city: 'Nha Trang',
-          state: 'Khanh Hoa',
-          country: 'Vietnam',
-          latitude: 12.2388,
-          longitude: 109.1967,
-        },
-        amenities: ['WiFi', 'Kitchen', 'Beach Access', 'Balcony', 'Air Conditioning'],
-        coverPhoto: 'https://via.placeholder.com/800x600',
-        rating: 4.7,
-        reviewCount: 18,
-        instantBooking: true,
-      },
-    ];
+  @ApiResponse({ status: 200, description: 'List of properties', type: ListPropertiesResponseDto })
+  async searchProperties(@Query() query: SearchPropertyDto): Promise<ListPropertiesResponseDto> {
+    const properties = await this.listPropertiesUseCase.execute({
+      city: query.location,
+      propertyType: query.propertyType,
+      minPrice: query.minPrice,
+      maxPrice: query.maxPrice,
+      status: 'active',
+    });
     
-    // Apply filters (mock)
-    let filtered = [...mockProperties];
+    // Map properties to response format
+    let filteredData = properties.map(p => ({
+      id: p.getId(),
+      title: p.getTitle(),
+      description: p.getDescription(),
+      propertyType: p.getPropertyType(),
+      maxGuests: p.getMaxGuests(),
+      bedrooms: p.getBedrooms(),
+      beds: p.getBeds(),
+      bathrooms: p.getBathrooms(),
+      pricePerNight: p.getPricePerNight(),
+      currency: p.getCurrency(),
+      cleaningFee: p.getCleaningFee(),
+      status: p.getStatus(),
+      location: p.getLocation() ? {
+        city: p.getLocation()!.getCity(),
+        state: p.getLocation()!.getState(),
+        country: p.getLocation()!.getCountry(),
+        latitude: p.getLocation()!.getLatitude(),
+        longitude: p.getLocation()!.getLongitude(),
+      } : null,
+      coverPhotoId: p.getCoverPhotoId(),
+      instantBooking: p.isInstantBooking(),
+      rating: 0,
+      reviewCount: 0,
+    }));
     
-    if (query.propertyType) {
-      filtered = filtered.filter(p => p.propertyType === query.propertyType);
-    }
-    
-    if (query.minPrice) {
-      filtered = filtered.filter(p => p.pricePerNight >= query.minPrice!);
-    }
-    
-    if (query.maxPrice) {
-      filtered = filtered.filter(p => p.pricePerNight <= query.maxPrice!);
-    }
-    
+    // Apply additional filters
     if (query.guests) {
-      filtered = filtered.filter(p => p.maxGuests >= query.guests!);
+      filteredData = filteredData.filter(p => p.maxGuests >= query.guests!);
     }
     
     if (query.instantBooking) {
-      filtered = filtered.filter(p => p.instantBooking);
+      filteredData = filteredData.filter(p => p.instantBooking);
     }
     
     // Sort
     if (query.sortBy === 'price') {
-      filtered.sort((a, b) => 
+      filteredData.sort((a, b) => 
         query.sortOrder === 'desc' 
           ? b.pricePerNight - a.pricePerNight 
           : a.pricePerNight - b.pricePerNight
       );
     } else if (query.sortBy === 'rating') {
-      filtered.sort((a, b) => 
+      filteredData.sort((a, b) => 
         query.sortOrder === 'desc' 
           ? b.rating - a.rating 
           : a.rating - b.rating
@@ -192,16 +169,16 @@ export class PropertyController {
     const limit = query.limit || 10;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedData = filtered.slice(startIndex, endIndex);
+    const paginatedData = filteredData.slice(startIndex, endIndex);
     
     return {
       data: paginatedData,
       meta: {
         page,
         limit,
-        totalItems: filtered.length,
-        totalPages: Math.ceil(filtered.length / limit),
-        hasNextPage: endIndex < filtered.length,
+        totalItems: filteredData.length,
+        totalPages: Math.ceil(filteredData.length / limit),
+        hasNextPage: endIndex < filteredData.length,
         hasPreviousPage: page > 1,
       },
     };
@@ -212,76 +189,39 @@ export class PropertyController {
    */
   @Get(':id')
   @ApiOperation({ summary: 'Get property details' })
-  @ApiResponse({ status: 200, description: 'Property details' })
-  async getProperty(@Param('id') id: string) {
-    // Mock response
+  @ApiResponse({ status: 200, description: 'Property details', type: PropertyDetailResponseDto })
+  async getProperty(@Param('id') id: string): Promise<PropertyDetailResponseDto> {
+    const property = await this.getPropertyUseCase.execute({ id });
+    
     return {
-      id,
-      title: 'Cozy Apartment in City Center',
-      description: 'Beautiful modern apartment with stunning city views. Perfect for couples or small families. Walking distance to major attractions, restaurants, and shopping areas. The apartment is fully furnished with modern amenities.',
-      propertyType: PropertyType.APARTMENT,
-      maxGuests: 4,
-      bedrooms: 2,
-      beds: 2,
-      bathrooms: 1,
-      pricePerNight: 100,
-      currency: 'USD',
-      cleaningFee: 20,
-      serviceFeePercentage: 14,
-      minimumNights: 1,
-      maximumNights: 365,
-      instantBooking: true,
-      status: PropertyStatus.ACTIVE,
-      host: {
-        id: UuidGenerator.generate(),
-        name: 'John Doe',
-        email: 'john@example.com',
-        photo: 'https://via.placeholder.com/150',
-        joinedDate: '2020-01-15',
-        responseRate: 95,
-        responseTime: 'within an hour',
-        isSuperHost: true,
-      },
-      location: {
-        address: '123 Main Street, District 1',
-        city: 'Ho Chi Minh City',
-        state: 'Ho Chi Minh',
-        country: 'Vietnam',
-        postalCode: '700000',
-        latitude: 10.8231,
-        longitude: 106.6297,
-      },
-      amenities: [
-        { id: UuidGenerator.generate(), name: 'WiFi', icon: 'wifi', category: 'basic' },
-        { id: UuidGenerator.generate(), name: 'Kitchen', icon: 'kitchen', category: 'basic' },
-        { id: UuidGenerator.generate(), name: 'Air Conditioning', icon: 'ac', category: 'basic' },
-        { id: UuidGenerator.generate(), name: 'TV', icon: 'tv', category: 'entertainment' },
-        { id: UuidGenerator.generate(), name: 'Washing Machine', icon: 'washing', category: 'basic' },
-      ],
-      photos: [
-        { id: UuidGenerator.generate(), url: 'https://via.placeholder.com/800x600', isCover: true, order: 1 },
-        { id: UuidGenerator.generate(), url: 'https://via.placeholder.com/800x600', isCover: false, order: 2 },
-        { id: UuidGenerator.generate(), url: 'https://via.placeholder.com/800x600', isCover: false, order: 3 },
-      ],
-      rating: 4.8,
-      reviewCount: 24,
-      reviews: {
-        overall: 4.8,
-        cleanliness: 4.9,
-        accuracy: 4.7,
-        checkin: 4.8,
-        communication: 4.9,
-        location: 4.8,
-        value: 4.7,
-      },
-      availability: {
-        minStay: 1,
-        maxStay: 365,
-        advanceNotice: 1, // days
-        preparationTime: 1, // days
-      },
-      createdAt: new Date('2023-01-01'),
-      updatedAt: new Date(),
+      id: property.getId(),
+      hostId: property.getHostId(),
+      title: property.getTitle(),
+      description: property.getDescription(),
+      propertyType: property.getPropertyType(),
+      maxGuests: property.getMaxGuests(),
+      bedrooms: property.getBedrooms(),
+      beds: property.getBeds(),
+      bathrooms: property.getBathrooms(),
+      pricePerNight: property.getPricePerNight(),
+      currency: property.getCurrency(),
+      cleaningFee: property.getCleaningFee(),
+      serviceFeePercentage: property.getServiceFeePercentage(),
+      minimumNights: property.getMinimumNights(),
+      maximumNights: property.getMaximumNights(),
+      instantBooking: property.isInstantBooking(),
+      status: property.getStatus(),
+      location: property.getLocation() ? {
+        address: property.getLocation()!.getAddress(),
+        city: property.getLocation()!.getCity(),
+        state: property.getLocation()!.getState(),
+        country: property.getLocation()!.getCountry(),
+        postalCode: property.getLocation()!.getPostalCode(),
+        latitude: property.getLocation()!.getLatitude(),
+        longitude: property.getLocation()!.getLongitude(),
+      } : null,
+      createdAt: property.getCreatedAt(),
+      updatedAt: property.getUpdatedAt(),
     };
   }
   
@@ -298,11 +238,15 @@ export class PropertyController {
     @Body() dto: Partial<CreatePropertyDto>,
     @Req() request: any,
   ) {
-    // Mock response
+    // TODO: Implement UpdatePropertyUseCase
+    // - Verify host ownership
+    // - Update property fields
+    // - Return updated property
     return {
       id,
       ...dto,
       updatedAt: new Date(),
+      message: 'Update property feature: TODO - Create UpdatePropertyUseCase',
     };
   }
   
@@ -333,35 +277,31 @@ export class PropertyController {
   async getHostProperties(@Req() request: any, @Query() query: any) {
     const hostId = request.user.id;
     
-    // Mock data
+    // TODO: Use ListPropertiesUseCase with hostId filter
+    // - Add hostId to ListPropertiesUseCasePayload
+    // - Add bookingCount, revenue stats aggregation
+    // - Add rating/review count from review repository
+    
+    const properties = await this.listPropertiesUseCase.execute({
+      // hostId: hostId, // TODO: Add this field to ListPropertiesUseCasePayload
+      status: query.status,
+    });
+    
     return {
-      data: [
-        {
-          id: UuidGenerator.generate(),
-          title: 'My Property 1',
-          propertyType: PropertyType.APARTMENT,
-          status: PropertyStatus.ACTIVE,
-          pricePerNight: 100,
-          bookingCount: 15,
-          revenue: 1500,
-          rating: 4.8,
-          reviewCount: 10,
-        },
-        {
-          id: UuidGenerator.generate(),
-          title: 'My Property 2',
-          propertyType: PropertyType.HOUSE,
-          status: PropertyStatus.DRAFT,
-          pricePerNight: 150,
-          bookingCount: 0,
-          revenue: 0,
-          rating: 0,
-          reviewCount: 0,
-        },
-      ],
+      data: properties.map(p => ({
+        id: p.getId(),
+        title: p.getTitle(),
+        propertyType: p.getPropertyType(),
+        status: p.getStatus(),
+        pricePerNight: p.getPricePerNight(),
+        bookingCount: 0, // TODO: Aggregate from bookings
+        revenue: 0, // TODO: Calculate from bookings
+        rating: 0, // TODO: Get from reviews
+        reviewCount: 0, // TODO: Count from reviews
+      })),
       meta: {
         page: 1,
-        total: 2,
+        total: properties.length,
       },
     };
   }

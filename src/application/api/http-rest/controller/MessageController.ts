@@ -1,7 +1,20 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
-import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
+import { GetUserConversationsUseCase } from '@core/service/message/usecase/GetUserConversationsUseCase';
+import { GetConversationMessagesUseCase } from '@core/service/message/usecase/GetConversationMessagesUseCase';
+import { SendMessageUseCase } from '@core/service/message/usecase/SendMessageUseCase';
+import { StartConversationUseCase } from '@core/service/message/usecase/StartConversationUseCase';
+import { MarkMessagesAsReadUseCase } from '@core/service/message/usecase/MarkMessagesAsReadUseCase';
+import {
+  ListConversationsResponseDto,
+  GetConversationResponseDto,
+  SendMessageResponseDto,
+  StartConversationResponseDto,
+  UnreadCountResponseDto,
+  MarkAsReadResponseDto,
+} from '@application/api/http-rest/dto/message/MessageResponseDto';
+import { BookableItemType } from '@core/common/entity/BookableItem';
 
 /**
  * Message Controller - Airbnb-like messaging system
@@ -12,70 +25,54 @@ import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 @ApiBearerAuth()
 export class MessageController {
   
+  constructor(
+    private readonly getUserConversationsUseCase: GetUserConversationsUseCase,
+    private readonly getConversationMessagesUseCase: GetConversationMessagesUseCase,
+    private readonly sendMessageUseCase: SendMessageUseCase,
+    private readonly startConversationUseCase: StartConversationUseCase,
+    private readonly markMessagesAsReadUseCase: MarkMessagesAsReadUseCase,
+  ) {}
+  
   /**
    * Get all conversations for user
    */
   @Get('conversations')
   @ApiOperation({ summary: 'Lấy danh sách conversations' })
-  @ApiResponse({ status: 200, description: 'List of conversations' })
-  async getConversations(@Req() request: any) {
+  @ApiResponse({ status: 200, description: 'List of conversations', type: ListConversationsResponseDto })
+  async getConversations(
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<ListConversationsResponseDto> {
     const userId = request.user.id;
     
-    // Mock data
+    const conversations = await this.getUserConversationsUseCase.execute({ userId });
+    
+    // TODO: Fetch property/vehicle details and user details
+    // For now, return basic conversation data
+    const totalUnread = conversations.reduce((sum, c) => sum + c.getUnreadCount(), 0);
+    
     return {
-      data: [
-        {
-          id: UuidGenerator.generate(),
-          property: {
-            id: UuidGenerator.generate(),
-            title: 'Cozy Apartment',
-            location: 'Ho Chi Minh City',
-            coverPhoto: 'https://via.placeholder.com/400x300',
-          },
-          participant: {
-            id: UuidGenerator.generate(),
-            name: 'John Doe',
-            photo: 'https://via.placeholder.com/150',
-            responseRate: 95,
-            responseTime: 'within an hour',
-          },
-          lastMessage: {
-            content: 'Thank you for your interest! The apartment is available for those dates.',
-            sentAt: '2025-10-08T14:30:00Z',
-            isRead: false,
-          },
-          unreadCount: 2,
-          createdAt: '2025-10-07T10:00:00Z',
-          updatedAt: '2025-10-08T14:30:00Z',
+      data: conversations.map(conv => ({
+        id: conv.getId(),
+        bookableType: conv.getBookableType(),
+        bookableId: conv.getBookableId(),
+        property: undefined, // TODO: Fetch property details
+        participant: {
+          id: conv.getGuestId() === userId ? conv.getHostId() : conv.getGuestId(),
+          name: 'User', // TODO: Fetch user details
+          photo: 'https://via.placeholder.com/150',
         },
-        {
-          id: UuidGenerator.generate(),
-          property: {
-            id: UuidGenerator.generate(),
-            title: 'Beach House',
-            location: 'Da Nang',
-            coverPhoto: 'https://via.placeholder.com/400x300',
-          },
-          participant: {
-            id: UuidGenerator.generate(),
-            name: 'Jane Smith',
-            photo: 'https://via.placeholder.com/150',
-            responseRate: 98,
-            responseTime: 'within a few hours',
-          },
-          lastMessage: {
-            content: 'What time is check-in?',
-            sentAt: '2025-10-06T16:20:00Z',
-            isRead: true,
-          },
-          unreadCount: 0,
-          createdAt: '2025-10-05T09:00:00Z',
-          updatedAt: '2025-10-06T16:20:00Z',
+        lastMessage: {
+          content: 'Last message', // TODO: Fetch last message
+          sentAt: conv.getLastMessageAt() || conv.getCreatedAt(),
+          isRead: false,
         },
-      ],
+        unreadCount: conv.getUnreadCount(),
+        createdAt: conv.getCreatedAt(),
+        updatedAt: conv.getUpdatedAt(),
+      })),
       meta: {
-        total: 2,
-        unreadTotal: 2,
+        total: conversations.length,
+        unreadTotal: totalUnread,
       },
     };
   }
@@ -85,69 +82,41 @@ export class MessageController {
    */
   @Get('conversations/:id')
   @ApiOperation({ summary: 'Lấy messages trong conversation' })
-  @ApiResponse({ status: 200, description: 'Conversation messages' })
-  async getConversation(@Param('id') id: string, @Req() request: any) {
-    // Mock data
+  @ApiResponse({ status: 200, description: 'Conversation messages', type: GetConversationResponseDto })
+  async getConversation(
+    @Param('id') id: string,
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<GetConversationResponseDto> {
+    const userId = request.user.id;
+    
+    const messages = await this.getConversationMessagesUseCase.execute({ conversationId: id });
+    
+    // TODO: Fetch conversation details, property, participant
     return {
       conversation: {
         id,
         property: {
-          id: UuidGenerator.generate(),
-          title: 'Cozy Apartment in City Center',
-          location: 'Ho Chi Minh City, Vietnam',
-          pricePerNight: 100,
+          id: 'property-id',
+          title: 'Property Title', // TODO: Fetch real data
+          location: 'Location',
           coverPhoto: 'https://via.placeholder.com/400x300',
         },
         participant: {
-          id: UuidGenerator.generate(),
-          name: 'John Doe',
+          id: 'participant-id',
+          name: 'User Name', // TODO: Fetch real data
           photo: 'https://via.placeholder.com/150',
-          role: 'host',
-          joinedDate: '2020-01-15',
-          responseRate: 95,
-          verified: true,
-        },
-        booking: {
-          id: UuidGenerator.generate(),
-          checkIn: '2025-11-01',
-          checkOut: '2025-11-05',
-          status: 'confirmed',
         },
       },
-      messages: [
-        {
-          id: UuidGenerator.generate(),
-          senderId: UuidGenerator.generate(),
-          senderName: 'You',
-          content: 'Hi! Is this property available from Nov 1-5?',
-          isRead: true,
-          createdAt: '2025-10-07T10:00:00Z',
-        },
-        {
-          id: UuidGenerator.generate(),
-          senderId: UuidGenerator.generate(),
-          senderName: 'John Doe',
-          content: 'Hi! Yes, it is available for those dates. Would you like to book?',
-          isRead: true,
-          createdAt: '2025-10-07T10:15:00Z',
-        },
-        {
-          id: UuidGenerator.generate(),
-          senderId: UuidGenerator.generate(),
-          senderName: 'You',
-          content: 'Great! What time is check-in?',
-          isRead: true,
-          createdAt: '2025-10-07T10:20:00Z',
-        },
-        {
-          id: UuidGenerator.generate(),
-          senderId: UuidGenerator.generate(),
-          senderName: 'John Doe',
-          content: 'Check-in is from 2 PM to 10 PM. Let me know if you need late check-in!',
-          isRead: false,
-          createdAt: '2025-10-08T14:30:00Z',
-        },
-      ],
+      messages: messages.map(msg => ({
+        id: msg.getId(),
+        senderId: msg.getSenderId(),
+        senderName: msg.getSenderId() === userId ? 'You' : 'User', // TODO: Fetch names
+        content: msg.getContent(),
+        attachmentUrl: msg.getAttachmentUrl(),
+        isRead: msg.getIsRead(),
+        readAt: msg.getReadAt(),
+        createdAt: msg.getCreatedAt(),
+      })),
     };
   }
   
@@ -156,29 +125,34 @@ export class MessageController {
    */
   @Post('conversations/:id/messages')
   @ApiOperation({ summary: 'Gửi message (REST fallback)' })
-  @ApiResponse({ status: 201, description: 'Message sent' })
+  @ApiResponse({ status: 201, description: 'Message sent', type: SendMessageResponseDto })
   async sendMessage(
     @Param('id') conversationId: string,
     @Body() body: { content: string; attachmentUrl?: string },
-    @Req() request: any,
-  ) {
+    @Req() request: Express.Request & { user: { id: string } },
+  ): Promise<SendMessageResponseDto> {
     const senderId = request.user.id;
     
-    // Mock response
-    const message = {
-      id: UuidGenerator.generate(),
+    const message = await this.sendMessageUseCase.execute({
       conversationId,
       senderId,
       content: body.content,
       attachmentUrl: body.attachmentUrl,
-      isRead: false,
-      createdAt: new Date(),
-    };
+    });
 
     return {
-      message,
+      message: {
+        id: message.getId(),
+        senderId: message.getSenderId(),
+        senderName: 'You',
+        content: message.getContent(),
+        attachmentUrl: message.getAttachmentUrl(),
+        isRead: message.getIsRead(),
+        readAt: message.getReadAt(),
+        createdAt: message.getCreatedAt(),
+      },
       status: 'sent',
-      deliveredVia: 'rest', // 'websocket' if user online
+      deliveredVia: 'rest',
     };
   }
   
@@ -187,8 +161,15 @@ export class MessageController {
    */
   @Put('conversations/:id/read')
   @ApiOperation({ summary: 'Đánh dấu messages đã đọc' })
-  @ApiResponse({ status: 200, description: 'Messages marked as read' })
-  async markAsRead(@Param('id') conversationId: string, @Req() request: any) {
+  @ApiResponse({ status: 200, description: 'Messages marked as read', type: MarkAsReadResponseDto })
+  async markAsRead(
+    @Param('id') conversationId: string,
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<MarkAsReadResponseDto> {
+    const userId = request.user.id;
+    
+    await this.markMessagesAsReadUseCase.execute({ conversationId, userId });
+    
     return {
       conversationId,
       markedAt: new Date(),
@@ -201,25 +182,42 @@ export class MessageController {
    */
   @Post('conversations')
   @ApiOperation({ summary: 'Bắt đầu conversation mới' })
-  @ApiResponse({ status: 201, description: 'Conversation created' })
+  @ApiResponse({ status: 201, description: 'Conversation created', type: StartConversationResponseDto })
   async startConversation(
-    @Body() body: { propertyId: string; hostId: string; message: string },
-    @Req() request: any,
-  ) {
+    @Body() body: { 
+      bookableType?: BookableItemType;
+      bookableId?: string;
+      propertyId?: string; // Backward compatibility
+      hostId: string; 
+      message: string;
+    },
+    @Req() request: Express.Request & { user: { id: string } },
+  ): Promise<StartConversationResponseDto> {
     const guestId = request.user.id;
+    
+    const result = await this.startConversationUseCase.execute({
+      bookableType: body.bookableType || BookableItemType.PROPERTY,
+      bookableId: body.bookableId || body.propertyId!,
+      propertyId: body.propertyId,
+      guestId,
+      hostId: body.hostId,
+      initialMessage: body.message,
+    });
     
     return {
       conversation: {
-        id: UuidGenerator.generate(),
-        propertyId: body.propertyId,
-        guestId,
-        hostId: body.hostId,
-        createdAt: new Date(),
+        id: result.conversation.getId(),
+        bookableType: result.conversation.getBookableType(),
+        bookableId: result.conversation.getBookableId(),
+        propertyId: result.conversation.getPropertyId(),
+        guestId: result.conversation.getGuestId(),
+        hostId: result.conversation.getHostId(),
+        createdAt: result.conversation.getCreatedAt(),
       },
       firstMessage: {
-        id: UuidGenerator.generate(),
-        content: body.message,
-        sentAt: new Date(),
+        id: result.firstMessage.getId(),
+        content: result.firstMessage.getContent(),
+        sentAt: result.firstMessage.getCreatedAt(),
       },
     };
   }
@@ -229,14 +227,21 @@ export class MessageController {
    */
   @Get('unread-count')
   @ApiOperation({ summary: 'Lấy số messages chưa đọc' })
-  @ApiResponse({ status: 200, description: 'Unread count' })
-  async getUnreadCount(@Req() request: any) {
+  @ApiResponse({ status: 200, description: 'Unread count', type: UnreadCountResponseDto })
+  async getUnreadCount(
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<UnreadCountResponseDto> {
+    const userId = request.user.id;
+    
+    const conversations = await this.getUserConversationsUseCase.execute({ userId });
+    const conversationsWithUnread = conversations.filter(c => c.getUnreadCount() > 0);
+    
     return {
-      total: 5,
-      conversations: [
-        { conversationId: UuidGenerator.generate(), count: 2 },
-        { conversationId: UuidGenerator.generate(), count: 3 },
-      ],
+      total: conversations.reduce((sum, c) => sum + c.getUnreadCount(), 0),
+      conversations: conversationsWithUnread.map(c => ({
+        conversationId: c.getId(),
+        count: c.getUnreadCount(),
+      })),
     };
   }
 }

@@ -2,7 +2,15 @@ import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CreateReviewDto } from '@application/api/http-rest/dto/review/CreateReviewDto';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
-import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
+import { CreateReviewUseCase } from '@core/service/review/usecase/CreateReviewUseCase';
+import { ListPropertyReviewsUseCase } from '@core/service/review/usecase/ListPropertyReviewsUseCase';
+import { ListUserReviewsUseCase } from '@core/service/review/usecase/ListUserReviewsUseCase';
+import { CheckReviewEligibilityUseCase } from '@core/service/review/usecase/CheckReviewEligibilityUseCase';
+import {
+  CreateReviewResponseDto,
+  ListReviewsResponseDto,
+} from '@application/api/http-rest/dto/review/ReviewResponseDto';
+import { Request } from 'express';
 
 /**
  * Review Controller - Airbnb-like review system
@@ -11,6 +19,13 @@ import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 @ApiTags('Reviews')
 export class ReviewController {
   
+  constructor(
+    private readonly createReviewUseCase: CreateReviewUseCase,
+    private readonly listPropertyReviewsUseCase: ListPropertyReviewsUseCase,
+    private readonly listUserReviewsUseCase: ListUserReviewsUseCase,
+    private readonly checkReviewEligibilityUseCase: CheckReviewEligibilityUseCase,
+  ) {}
+  
   /**
    * Create new review (after completed stay)
    */
@@ -18,42 +33,43 @@ export class ReviewController {
   @UseGuards(HttpJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tạo review cho property' })
-  @ApiResponse({ status: 201, description: 'Review created successfully' })
-  async createReview(@Body() dto: CreateReviewDto, @Req() request: any) {
+  @ApiResponse({ status: 201, description: 'Review created successfully', type: CreateReviewResponseDto })
+  async createReview(
+    @Body() dto: CreateReviewDto, 
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<CreateReviewResponseDto> {
     const reviewerId = request.user.id;
     
-    // Calculate average
-    const average = (
-      dto.ratingCleanliness +
-      dto.ratingAccuracy +
-      dto.ratingCheckin +
-      dto.ratingCommunication +
-      dto.ratingLocation +
-      dto.ratingValue
-    ) / 6;
-    
-    // Mock response
-    return {
-      id: UuidGenerator.generate(),
+    const review = await this.createReviewUseCase.execute({
       bookingId: dto.bookingId,
       reviewerId,
-      ratings: {
-        overall: dto.ratingOverall,
-        cleanliness: dto.ratingCleanliness,
-        accuracy: dto.ratingAccuracy,
-        checkin: dto.ratingCheckin,
-        communication: dto.ratingCommunication,
-        location: dto.ratingLocation,
-        value: dto.ratingValue,
-        average: Math.round(average * 10) / 10,
-      },
+      ratingOverall: dto.ratingOverall,
+      ratingCleanliness: dto.ratingCleanliness,
+      ratingAccuracy: dto.ratingAccuracy,
+      ratingCheckin: dto.ratingCheckin,
+      ratingCommunication: dto.ratingCommunication,
+      ratingLocation: dto.ratingLocation,
+      ratingValue: dto.ratingValue,
       comment: dto.comment,
-      reviewer: {
-        name: request.user.email,
-        photo: 'https://via.placeholder.com/150',
+    });
+    
+    return {
+      id: review.getId(),
+      bookingId: review.getBookingId(),
+      propertyId: review.getPropertyId(),
+      reviewerId: review.getReviewerId(),
+      ratings: {
+        overall: review.getRatingOverall(),
+        cleanliness: review.getRatingCleanliness(),
+        accuracy: review.getRatingAccuracy(),
+        checkin: review.getRatingCheckin(),
+        communication: review.getRatingCommunication(),
+        location: review.getRatingLocation(),
+        value: review.getRatingValue(),
       },
-      isPublished: false,
-      createdAt: new Date(),
+      comment: review.getComment(),
+      isPublished: review.getIsPublished(),
+      createdAt: review.getCreatedAt(),
       message: 'Review submitted. It will be published after the host also leaves a review or after 14 days.',
     };
   }
@@ -63,109 +79,49 @@ export class ReviewController {
    */
   @Get('property/:propertyId')
   @ApiOperation({ summary: 'Lấy reviews của property' })
-  @ApiResponse({ status: 200, description: 'List of reviews' })
+  @ApiResponse({ status: 200, description: 'List of reviews', type: ListReviewsResponseDto })
   async getPropertyReviews(
     @Param('propertyId') propertyId: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
-  ) {
-    // Mock data
-    const mockReviews = [
-      {
-        id: UuidGenerator.generate(),
-        reviewer: {
-          name: 'Alice Johnson',
-          photo: 'https://via.placeholder.com/150',
-          joinedDate: '2023-05-15',
-        },
-        ratings: {
-          overall: 5,
-          cleanliness: 5,
-          accuracy: 5,
-          checkin: 5,
-          communication: 5,
-          location: 5,
-          value: 5,
-          average: 5.0,
-        },
-        comment: 'Absolutely wonderful stay! The apartment was spotlessly clean, exactly as described, and the host was incredibly responsive. The location is perfect - walking distance to everything. Highly recommended!',
-        hostResponse: 'Thank you so much Alice! It was a pleasure hosting you. You are welcome back anytime!',
-        createdAt: '2025-09-15',
-        stayDate: '2025-09-01',
-      },
-      {
-        id: UuidGenerator.generate(),
-        reviewer: {
-          name: 'Bob Smith',
-          photo: 'https://via.placeholder.com/150',
-          joinedDate: '2022-11-20',
-        },
-        ratings: {
-          overall: 4,
-          cleanliness: 5,
-          accuracy: 4,
-          checkin: 4,
-          communication: 5,
-          location: 4,
-          value: 4,
-          average: 4.3,
-        },
-        comment: 'Great place overall. Very clean and comfortable. Check-in was smooth. Only minor issue was some street noise at night, but manageable with windows closed. Good value for money.',
-        createdAt: '2025-08-22',
-        stayDate: '2025-08-15',
-      },
-      {
-        id: UuidGenerator.generate(),
-        reviewer: {
-          name: 'Carol Davis',
-          photo: 'https://via.placeholder.com/150',
-          joinedDate: '2024-01-10',
-        },
-        ratings: {
-          overall: 5,
-          cleanliness: 5,
-          accuracy: 5,
-          checkin: 5,
-          communication: 5,
-          location: 5,
-          value: 5,
-          average: 5.0,
-        },
-        comment: 'Perfect apartment for our family vacation! Kids loved the space and we appreciated the fully equipped kitchen. Host was super helpful with local recommendations. Will definitely stay again!',
-        hostResponse: 'So happy you and your family enjoyed the stay! Hope to see you again soon.',
-        createdAt: '2025-07-30',
-        stayDate: '2025-07-20',
-      },
-    ];
+  ): Promise<ListReviewsResponseDto> {
+    const reviews = await this.listPropertyReviewsUseCase.execute({
+      propertyId,
+      onlyPublished: true,
+    });
+    
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedReviews = reviews.slice(startIndex, endIndex);
     
     return {
-      data: mockReviews,
+      data: paginatedReviews.map(review => ({
+        id: review.getId(),
+        propertyId: review.getPropertyId(),
+        bookingId: review.getBookingId(),
+        reviewerId: review.getReviewerId(),
+        ratings: {
+          overall: review.getRatingOverall(),
+          cleanliness: review.getRatingCleanliness(),
+          accuracy: review.getRatingAccuracy(),
+          checkin: review.getRatingCheckin(),
+          communication: review.getRatingCommunication(),
+          location: review.getRatingLocation(),
+          value: review.getRatingValue(),
+        },
+        comment: review.getComment(),
+        hostResponse: review.getResponse(),
+        isPublished: review.getIsPublished(),
+        createdAt: review.getCreatedAt(),
+      })),
       meta: {
         page,
         limit,
-        totalItems: 24,
-        totalPages: 3,
-        hasNextPage: page < 3,
+        totalItems: reviews.length,
+        totalPages: Math.ceil(reviews.length / limit),
+        hasNextPage: endIndex < reviews.length,
         hasPreviousPage: page > 1,
-      },
-      summary: {
-        overallRating: 4.8,
-        totalReviews: 24,
-        ratings: {
-          cleanliness: 4.9,
-          accuracy: 4.7,
-          checkin: 4.8,
-          communication: 4.9,
-          location: 4.8,
-          value: 4.7,
-        },
-        distribution: {
-          5: 18,
-          4: 5,
-          3: 1,
-          2: 0,
-          1: 0,
-        },
       },
     };
   }
@@ -177,28 +133,38 @@ export class ReviewController {
   @ApiOperation({ summary: 'Lấy reviews của user' })
   @ApiResponse({ status: 200, description: 'List of user reviews' })
   async getUserReviews(@Param('userId') userId: string) {
-    // Mock data
+    const reviews = await this.listUserReviewsUseCase.execute({ userId });
+    
+    // Map to response format with property details
+    const data = reviews.map((review: any) => ({
+      id: review.getId(),
+      property: {
+        id: review.getPropertyId(),
+        title: 'Property Title', // TODO: Fetch property details
+        location: 'Location',
+        coverPhoto: '',
+      },
+      ratings: {
+        overall: review.getOverallRating(),
+        average: (
+          review.getOverallRating() +
+          review.getCleanlinessRating() +
+          review.getCommunicationRating() +
+          review.getCheckInRating() +
+          review.getAccuracyRating() +
+          review.getLocationRating() +
+          review.getValueRating()
+        ) / 7,
+      },
+      comment: review.getComment(),
+      createdAt: review.getCreatedAt().toISOString().split('T')[0],
+    }));
+    
     return {
-      data: [
-        {
-          id: UuidGenerator.generate(),
-          property: {
-            id: UuidGenerator.generate(),
-            title: 'Cozy Apartment',
-            location: 'Ho Chi Minh City',
-            coverPhoto: 'https://via.placeholder.com/400x300',
-          },
-          ratings: {
-            overall: 5,
-            average: 4.8,
-          },
-          comment: 'Great place!',
-          createdAt: '2025-09-15',
-        },
-      ],
+      data,
       meta: {
         page: 1,
-        total: 1,
+        total: data.length,
       },
     };
   }
@@ -232,18 +198,19 @@ export class ReviewController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Check if can review' })
   @ApiResponse({ status: 200, description: 'Review eligibility' })
-  async canReview(@Param('bookingId') bookingId: string, @Req() request: any) {
-    // Mock logic
-    const daysAfterCheckout = 5; // Mock
-    const canReview = daysAfterCheckout <= 14;
+  async canReview(@Param('bookingId') bookingId: string, @Req() request: Request) {
+    const userId = (request as any).user.id;
+    
+    const result = await this.checkReviewEligibilityUseCase.execute({
+      bookingId,
+      userId,
+    });
     
     return {
       bookingId,
-      canReview,
-      reason: canReview
-        ? 'You can leave a review for this stay'
-        : 'Review period has expired (14 days after checkout)',
-      daysRemaining: Math.max(0, 14 - daysAfterCheckout),
+      canReview: result.canReview,
+      reason: result.reason,
+      daysRemaining: result.daysRemaining,
     };
   }
 }

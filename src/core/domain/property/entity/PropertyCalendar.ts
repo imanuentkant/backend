@@ -64,8 +64,12 @@ export class PropertyCalendar extends TimestampedEntity<string> {
     return this.minimumNights;
   }
   
-  public getStatus(): string {
+  public getStatus(): 'available' | 'booked' | 'blocked' {
     return this.status;
+  }
+  
+  public getBlockReason(): string | undefined {
+    return this.blockReason;
   }
   
   public getBookingId(): string | undefined {

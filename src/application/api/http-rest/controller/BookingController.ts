@@ -3,7 +3,20 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { CreateBookingDto } from '@application/api/http-rest/dto/booking/CreateBookingDto';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
 import { BookingStatus, CancellationPolicy } from '@core/common/enums/BookingEnums';
-import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
+import { CreateBookingUseCase } from '@core/service/booking/usecase/CreateBookingUseCase';
+import { GetBookingUseCase } from '@core/service/booking/usecase/GetBookingUseCase';
+import { ConfirmBookingUseCase } from '@core/service/booking/usecase/ConfirmBookingUseCase';
+import { CancelBookingUseCase } from '@core/service/booking/usecase/CancelBookingUseCase';
+import { ListUserBookingsUseCase } from '@core/service/booking/usecase/ListUserBookingsUseCase';
+import { ListHostReservationsUseCase } from '@core/service/booking/usecase/ListHostReservationsUseCase';
+import { GetPropertyUseCase } from '@core/service/property/usecase/GetPropertyUseCase';
+import {
+  CreateBookingResponseDto,
+  ListBookingsResponseDto,
+  BookingDetailResponseDto,
+  ConfirmBookingResponseDto,
+  CancelBookingResponseDto,
+} from '@application/api/http-rest/dto/booking/BookingResponseDto';
 
 /**
  * Booking Controller - Airbnb-like booking management
@@ -14,56 +27,63 @@ import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 @ApiBearerAuth()
 export class BookingController {
   
+  constructor(
+    private readonly createBookingUseCase: CreateBookingUseCase,
+    private readonly getBookingUseCase: GetBookingUseCase,
+    private readonly confirmBookingUseCase: ConfirmBookingUseCase,
+    private readonly cancelBookingUseCase: CancelBookingUseCase,
+    private readonly listUserBookingsUseCase: ListUserBookingsUseCase,
+    private readonly listHostReservationsUseCase: ListHostReservationsUseCase,
+    private readonly getPropertyUseCase: GetPropertyUseCase,
+  ) {}
+  
   /**
    * Create new booking
    */
   @Post()
   @ApiOperation({ summary: 'Tạo booking mới' })
-  @ApiResponse({ status: 201, description: 'Booking created successfully' })
-  async createBooking(@Body() dto: CreateBookingDto, @Req() request: any) {
+  @ApiResponse({ status: 201, description: 'Booking created successfully', type: CreateBookingResponseDto })
+  async createBooking(
+    @Body() dto: CreateBookingDto, 
+    @Req() request: Express.Request & { user: { id: string, email: string } }
+  ): Promise<CreateBookingResponseDto> {
     const guestId = request.user.id;
     
-    // Calculate pricing
-    const checkIn = new Date(dto.checkInDate);
-    const checkOut = new Date(dto.checkOutDate);
-    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    
-    const pricePerNight = 100; // Mock price
-    const subtotal = pricePerNight * nights;
-    const cleaningFee = 20;
-    const serviceFee = subtotal * 0.14;
-    const total = subtotal + cleaningFee + serviceFee;
-    
-    // Mock response
-    return {
-      id: UuidGenerator.generate(),
+    const booking = await this.createBookingUseCase.execute({
       propertyId: dto.propertyId,
       guestId,
-      checkInDate: dto.checkInDate,
-      checkOutDate: dto.checkOutDate,
+      checkInDate: new Date(dto.checkInDate),
+      checkOutDate: new Date(dto.checkOutDate),
       numberOfGuests: dto.numberOfGuests,
-      totalNights: nights,
-      pricing: {
-        pricePerNight,
-        nights,
-        subtotal,
-        cleaningFee,
-        serviceFee,
-        total,
-        currency: 'USD',
-      },
-      status: BookingStatus.PENDING,
-      cancellationPolicy: CancellationPolicy.FLEXIBLE,
       specialRequests: dto.specialRequests,
-      property: {
-        id: dto.propertyId,
-        title: 'Cozy Apartment in City Center',
-        location: 'Ho Chi Minh City, Vietnam',
-        coverPhoto: 'https://via.placeholder.com/400x300',
+    });
+    
+    return {
+      id: booking.getId(),
+      bookableType: booking.getBookableType(),
+      bookableId: booking.getBookableId(),
+      propertyId: booking.getPropertyId(),
+      guestId: booking.getGuestId(),
+      checkInDate: booking.getCheckInDate(),
+      checkOutDate: booking.getCheckOutDate(),
+      numberOfGuests: booking.getNumberOfGuests(),
+      totalNights: booking.getTotalNights(),
+      pricing: {
+        pricePerNight: booking.getPricePerNight(),
+        nights: booking.getTotalNights(),
+        subtotal: booking.getSubtotal(),
+        cleaningFee: booking.getCleaningFee(),
+        serviceFee: booking.getServiceFee(),
+        total: booking.getTotalAmount(),
+        currency: booking.getCurrency(),
       },
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      message: 'Booking request sent. Host has 24 hours to respond.',
+      status: booking.getStatus(),
+      cancellationPolicy: booking.getCancellationPolicy(),
+      specialRequests: booking.getSpecialRequests(),
+      createdAt: booking.getCreatedAt(),
+      message: booking.getStatus() === 'confirmed' 
+        ? 'Booking confirmed instantly!' 
+        : 'Booking request sent. Host has 24 hours to respond.',
     };
   }
   
@@ -72,69 +92,44 @@ export class BookingController {
    */
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách bookings của user' })
-  @ApiResponse({ status: 200, description: 'List of bookings' })
-  async getUserBookings(@Req() request: any, @Query('status') status?: string) {
+  @ApiResponse({ status: 200, description: 'List of bookings', type: ListBookingsResponseDto })
+  async getUserBookings(
+    @Req() request: Express.Request & { user: { id: string } },
+    @Query('status') status?: string
+  ): Promise<ListBookingsResponseDto> {
     const userId = request.user.id;
     
-    // Mock data
-    const mockBookings = [
-      {
-        id: UuidGenerator.generate(),
-        propertyId: UuidGenerator.generate(),
-        checkInDate: '2025-11-01',
-        checkOutDate: '2025-11-05',
-        totalNights: 4,
-        numberOfGuests: 2,
-        total: 476,
-        currency: 'USD',
-        status: BookingStatus.CONFIRMED,
-        property: {
-          title: 'Cozy Apartment',
-          location: 'Ho Chi Minh City',
-          coverPhoto: 'https://via.placeholder.com/400x300',
-        },
-        host: {
-          name: 'John Doe',
-          photo: 'https://via.placeholder.com/150',
-        },
-        createdAt: '2025-10-01',
-      },
-      {
-        id: UuidGenerator.generate(),
-        propertyId: UuidGenerator.generate(),
-        checkInDate: '2025-12-15',
-        checkOutDate: '2025-12-20',
-        totalNights: 5,
-        numberOfGuests: 4,
-        total: 1270,
-        currency: 'USD',
-        status: BookingStatus.PENDING,
-        property: {
-          title: 'Luxury Villa',
-          location: 'Da Nang',
-          coverPhoto: 'https://via.placeholder.com/400x300',
-        },
-        host: {
-          name: 'Jane Smith',
-          photo: 'https://via.placeholder.com/150',
-        },
-        createdAt: '2025-10-08',
-      },
-    ];
-    
-    let filtered = [...mockBookings];
-    if (status) {
-      filtered = filtered.filter(b => b.status === status);
-    }
+    const bookings = await this.listUserBookingsUseCase.execute({
+      guestId: userId,
+      status: status as BookingStatus,
+    });
     
     return {
-      data: filtered,
+      data: bookings.map(booking => ({
+        id: booking.getId(),
+        bookableType: booking.getBookableType(),
+        bookableId: booking.getBookableId(),
+        propertyId: booking.getPropertyId(),
+        checkInDate: booking.getCheckInDate(),
+        checkOutDate: booking.getCheckOutDate(),
+        totalNights: booking.getTotalNights(),
+        numberOfGuests: booking.getNumberOfGuests(),
+        totalAmount: booking.getTotalAmount(),
+        currency: booking.getCurrency(),
+        status: booking.getStatus(),
+        cancellationPolicy: booking.getCancellationPolicy(),
+        specialRequests: booking.getSpecialRequests(),
+        confirmedAt: booking.getConfirmedAt(),
+        cancelledAt: booking.getCancelledAt(),
+        createdAt: booking.getCreatedAt(),
+      })),
       meta: {
         page: 1,
-        total: filtered.length,
-        upcoming: filtered.filter(b => b.status === BookingStatus.CONFIRMED).length,
-        past: 0,
-        cancelled: filtered.filter(b => b.status === BookingStatus.CANCELLED).length,
+        total: bookings.length,
+        upcoming: bookings.filter(b => b.getStatus() === BookingStatus.CONFIRMED).length,
+        past: bookings.filter(b => b.getStatus() === BookingStatus.COMPLETED).length,
+        pending: bookings.filter(b => b.getStatus() === BookingStatus.PENDING).length,
+        cancelled: bookings.filter(b => b.getStatus() === BookingStatus.CANCELLED).length,
       },
     };
   }
@@ -144,58 +139,54 @@ export class BookingController {
    */
   @Get(':id')
   @ApiOperation({ summary: 'Lấy chi tiết booking' })
-  @ApiResponse({ status: 200, description: 'Booking details' })
-  async getBooking(@Param('id') id: string, @Req() request: any) {
-    // Mock response
-    return {
+  @ApiResponse({ status: 200, description: 'Booking details', type: BookingDetailResponseDto })
+  async getBooking(
+    @Param('id') id: string, 
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<BookingDetailResponseDto> {
+    const booking = await this.getBookingUseCase.execute({
       id,
-      propertyId: UuidGenerator.generate(),
-      guestId: request.user.id,
-      checkInDate: '2025-11-01',
-      checkOutDate: '2025-11-05',
-      numberOfGuests: 2,
-      totalNights: 4,
+      userId: request.user.id,
+    });
+    
+    // Calculate if can cancel (before check-in date)
+    const now = new Date();
+    const canCancel = booking.getCheckInDate() > now && 
+                      booking.getStatus() !== BookingStatus.CANCELLED &&
+                      booking.getStatus() !== BookingStatus.COMPLETED;
+    
+    // Can review if completed
+    const canReview = booking.getStatus() === BookingStatus.COMPLETED;
+    
+    return {
+      id: booking.getId(),
+      bookableType: booking.getBookableType(),
+      bookableId: booking.getBookableId(),
+      propertyId: booking.getPropertyId(),
+      guestId: booking.getGuestId(),
+      checkInDate: booking.getCheckInDate(),
+      checkOutDate: booking.getCheckOutDate(),
+      numberOfGuests: booking.getNumberOfGuests(),
+      totalNights: booking.getTotalNights(),
       pricing: {
-        pricePerNight: 100,
-        nights: 4,
-        subtotal: 400,
-        cleaningFee: 20,
-        serviceFee: 56,
-        total: 476,
-        currency: 'USD',
+        pricePerNight: booking.getPricePerNight(),
+        nights: booking.getTotalNights(),
+        subtotal: booking.getSubtotal(),
+        cleaningFee: booking.getCleaningFee(),
+        serviceFee: booking.getServiceFee(),
+        total: booking.getTotalAmount(),
+        currency: booking.getCurrency(),
       },
-      status: BookingStatus.CONFIRMED,
-      cancellationPolicy: CancellationPolicy.FLEXIBLE,
-      specialRequests: 'Late check-in around 10 PM',
-      property: {
-        id: UuidGenerator.generate(),
-        title: 'Cozy Apartment in City Center',
-        address: '123 Main Street, District 1',
-        location: 'Ho Chi Minh City, Vietnam',
-        coverPhoto: 'https://via.placeholder.com/800x600',
-        checkInTime: '14:00',
-        checkOutTime: '12:00',
-      },
-      host: {
-        id: UuidGenerator.generate(),
-        name: 'John Doe',
-        email: 'john@example.com',
-        phone: '+84 123 456 789',
-        photo: 'https://via.placeholder.com/150',
-        responseRate: 95,
-        isSuperHost: true,
-      },
-      guest: {
-        id: request.user.id,
-        name: request.user.email,
-        email: request.user.email,
-        phone: '+84 987 654 321',
-      },
-      confirmedAt: '2025-10-02T10:30:00Z',
-      createdAt: '2025-10-01T15:20:00Z',
-      canCancel: true,
-      canReview: false,
-      refundAmount: 476, // Full refund với flexible policy
+      status: booking.getStatus(),
+      cancellationPolicy: booking.getCancellationPolicy(),
+      specialRequests: booking.getSpecialRequests(),
+      confirmedAt: booking.getConfirmedAt(),
+      cancelledAt: booking.getCancelledAt(),
+      cancellationReason: booking.getCancellationReason(),
+      createdAt: booking.getCreatedAt(),
+      updatedAt: booking.getUpdatedAt(),
+      canCancel,
+      canReview,
     };
   }
   
@@ -204,12 +195,20 @@ export class BookingController {
    */
   @Put(':id/confirm')
   @ApiOperation({ summary: 'Xác nhận booking (Host)' })
-  @ApiResponse({ status: 200, description: 'Booking confirmed' })
-  async confirmBooking(@Param('id') id: string, @Req() request: any) {
+  @ApiResponse({ status: 200, description: 'Booking confirmed', type: ConfirmBookingResponseDto })
+  async confirmBooking(
+    @Param('id') id: string, 
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<ConfirmBookingResponseDto> {
+    const booking = await this.confirmBookingUseCase.execute({
+      bookingId: id,
+      hostId: request.user.id,
+    });
+    
     return {
-      id,
-      status: BookingStatus.CONFIRMED,
-      confirmedAt: new Date(),
+      id: booking.getId(),
+      status: booking.getStatus(),
+      confirmedAt: booking.getConfirmedAt(),
       message: 'Booking confirmed successfully. Guest has been notified.',
     };
   }
@@ -235,29 +234,40 @@ export class BookingController {
    */
   @Put(':id/cancel')
   @ApiOperation({ summary: 'Hủy booking' })
-  @ApiResponse({ status: 200, description: 'Booking cancelled' })
-  async cancelBooking(@Param('id') id: string, @Body('reason') reason?: string) {
-    // Mock refund calculation
-    const refundAmount = 476; // Mock
-    const refundPercentage = 100;
+  @ApiResponse({ status: 200, description: 'Booking cancelled', type: CancelBookingResponseDto })
+  async cancelBooking(
+    @Param('id') id: string, 
+    @Body('reason') reason?: string, 
+    @Req() request?: Express.Request & { user: { id: string } }
+  ): Promise<CancelBookingResponseDto> {
+    const booking = await this.cancelBookingUseCase.execute({
+      bookingId: id,
+      userId: request!.user.id,
+      reason,
+    });
+    
+    // Calculate refund based on cancellation policy (simplified)
+    const refundAmount = booking.getTotalAmount();
+    const refundPercentage = 100; // Flexible policy
     
     return {
-      id,
-      status: BookingStatus.CANCELLED,
-      reason: reason || 'Cancelled by guest',
-      cancelledAt: new Date(),
+      id: booking.getId(),
+      status: booking.getStatus(),
+      reason: booking.getCancellationReason(),
+      cancelledAt: booking.getCancelledAt(),
       refund: {
         amount: refundAmount,
         percentage: refundPercentage,
-        currency: 'USD',
+        currency: booking.getCurrency(),
         processedIn: '5-10 business days',
       },
-      message: `Booking cancelled. You will receive a ${refundPercentage}% refund of ${refundAmount} USD.`,
+      message: `Booking cancelled. You will receive a ${refundPercentage}% refund of ${refundAmount} ${booking.getCurrency()}.`,
     };
   }
   
   /**
    * Calculate booking price
+   * Note: Requires fetching property/vehicle data - simplified version
    */
   @Post('calculate-price')
   @ApiOperation({ summary: 'Tính giá booking' })
@@ -267,10 +277,25 @@ export class BookingController {
     const checkOut = new Date(dto.checkOutDate);
     const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
     
-    const pricePerNight = 100; // Mock - should fetch from property
+    // Fetch actual property to get real price
+    let pricePerNight = 100;
+    let cleaningFee = 20;
+    let serviceFeePercentage = 0.14;
+    
+    if (dto.propertyId) {
+      try {
+        const property = await this.getPropertyUseCase.execute({ id: dto.propertyId });
+        pricePerNight = property.getPricePerNight();
+        cleaningFee = property.getCleaningFee();
+        serviceFeePercentage = property.getServiceFeePercentage() / 100;
+      } catch (error) {
+        // Property not found, use default values
+      }
+    }
+    // TODO: Handle vehicle pricing similarly when bookableType = 'vehicle'
+    
     const subtotal = pricePerNight * nights;
-    const cleaningFee = 20;
-    const serviceFee = subtotal * 0.14;
+    const serviceFee = subtotal * serviceFeePercentage;
     const total = subtotal + cleaningFee + serviceFee;
     
     return {
@@ -295,6 +320,7 @@ export class BookingController {
         { label: 'Cleaning fee', amount: cleaningFee },
         { label: 'Service fee', amount: serviceFee },
       ],
+      note: 'This is an estimated calculation. Actual price may vary based on property/vehicle pricing.',
     };
   }
   
@@ -303,36 +329,46 @@ export class BookingController {
    */
   @Get('host/reservations')
   @ApiOperation({ summary: 'Lấy danh sách reservations (Host)' })
-  @ApiResponse({ status: 200, description: 'List of reservations' })
-  async getHostReservations(@Req() request: any, @Query('status') status?: string) {
-    // Mock data
+  @ApiResponse({ status: 200, description: 'List of reservations', type: ListBookingsResponseDto })
+  async getHostReservations(
+    @Req() request: Express.Request & { user: { id: string } },
+    @Query('status') status?: string
+  ): Promise<ListBookingsResponseDto> {
+    const hostId = request.user.id;
+    
+    const bookings = await this.listHostReservationsUseCase.execute({
+      hostId,
+      status: status as BookingStatus,
+    });
+    
     return {
-      data: [
-        {
-          id: UuidGenerator.generate(),
-          propertyId: UuidGenerator.generate(),
-          propertyTitle: 'My Cozy Apartment',
-          guest: {
-            name: 'Alice Johnson',
-            photo: 'https://via.placeholder.com/150',
-            joinedDate: '2023-05-15',
-          },
-          checkInDate: '2025-11-10',
-          checkOutDate: '2025-11-15',
-          totalNights: 5,
-          numberOfGuests: 3,
-          total: 570,
-          status: BookingStatus.PENDING,
-          createdAt: '2025-10-08',
-          expiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000),
-        },
-      ],
+      data: bookings.map(booking => ({
+        id: booking.getId(),
+        bookableType: booking.getBookableType(),
+        bookableId: booking.getBookableId(),
+        propertyId: booking.getPropertyId(),
+        checkInDate: booking.getCheckInDate(),
+        checkOutDate: booking.getCheckOutDate(),
+        totalNights: booking.getTotalNights(),
+        numberOfGuests: booking.getNumberOfGuests(),
+        totalAmount: booking.getTotalAmount(),
+        currency: booking.getCurrency(),
+        status: booking.getStatus(),
+        cancellationPolicy: booking.getCancellationPolicy(),
+        specialRequests: booking.getSpecialRequests(),
+        confirmedAt: booking.getConfirmedAt(),
+        cancelledAt: booking.getCancelledAt(),
+        createdAt: booking.getCreatedAt(),
+      })),
       meta: {
         page: 1,
-        total: 1,
-        pending: 1,
-        confirmed: 0,
-        completed: 0,
+        total: bookings.length,
+        upcoming: 0,
+        past: 0,
+        pending: bookings.filter(b => b.getStatus() === BookingStatus.PENDING).length,
+        confirmed: bookings.filter(b => b.getStatus() === BookingStatus.CONFIRMED).length,
+        completed: bookings.filter(b => b.getStatus() === BookingStatus.COMPLETED).length,
+        cancelled: bookings.filter(b => b.getStatus() === BookingStatus.CANCELLED).length,
       },
     };
   }

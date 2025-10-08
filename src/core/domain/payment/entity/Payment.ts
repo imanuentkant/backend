@@ -1,148 +1,140 @@
-import { TimestampedEntity } from '@core/common/entity/TimestampedEntity';
+import { Entity } from '@core/common/entity/Entity';
 import { PaymentStatus } from '@core/common/enums/BookingEnums';
+import { Nullable } from '@core/common/type/CommonTypes';
 
-export class Payment extends TimestampedEntity<string> {
-  
+/**
+ * Payment Entity - Domain model cho payment record
+ */
+export class Payment extends Entity<string> {
   private bookingId: string;
-  private payerId: string;    // guest
-  private payeeId: string;    // host
+  private userId: string;
   private amount: number;
   private currency: string;
-  private paymentMethod: string;  // stripe, paypal
-  private transactionId?: string;
-  private stripePaymentIntentId?: string;
   private status: PaymentStatus;
-  private completedAt?: Date;
-  private refundedAt?: Date;
-  private refundAmount?: number;
-  private metadata?: Record<string, any>;
-  
+  private paymentMethod: string;
+  private stripePaymentIntentId: Nullable<string>;
+  private breakdown: PaymentBreakdown;
+  private metadata: Record<string, any>;
+  private completedAt: Nullable<Date>;
+  private createdAt: Date;
+  private updatedAt: Date;
+
   constructor(payload: {
-    id?: string,
-    bookingId: string,
-    payerId: string,
-    payeeId: string,
-    amount: number,
-    currency?: string,
-    paymentMethod?: string,
-    status?: PaymentStatus,
-    stripePaymentIntentId?: string,
-    createdAt?: Date,
-    updatedAt?: Date,
+    id?: string;
+    bookingId: string;
+    userId: string;
+    amount: number;
+    currency: string;
+    status: PaymentStatus;
+    paymentMethod: string;
+    stripePaymentIntentId?: string;
+    breakdown: PaymentBreakdown;
+    metadata?: Record<string, any>;
+    completedAt?: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
   }) {
-    super(payload.id, payload.createdAt, payload.updatedAt);
+    super();
+    this.id = payload.id;
     this.bookingId = payload.bookingId;
-    this.payerId = payload.payerId;
-    this.payeeId = payload.payeeId;
+    this.userId = payload.userId;
     this.amount = payload.amount;
-    this.currency = payload.currency || 'USD';
-    this.paymentMethod = payload.paymentMethod || 'stripe';
-    this.status = payload.status || PaymentStatus.PENDING;
-    this.stripePaymentIntentId = payload.stripePaymentIntentId;
+    this.currency = payload.currency;
+    this.status = payload.status;
+    this.paymentMethod = payload.paymentMethod;
+    this.stripePaymentIntentId = payload.stripePaymentIntentId || null;
+    this.breakdown = payload.breakdown;
+    this.metadata = payload.metadata || {};
+    this.completedAt = payload.completedAt || null;
+    this.createdAt = payload.createdAt || new Date();
+    this.updatedAt = payload.updatedAt || new Date();
   }
-  
-  public static async new(payload: {
-    bookingId: string,
-    payerId: string,
-    payeeId: string,
-    amount: number,
-    currency?: string,
-  }): Promise<Payment> {
-    const payment = new Payment(payload);
-    await payment.validate();
-    return payment;
-  }
-  
-  public async validate(): Promise<void> {
-    if (this.amount <= 0) {
-      throw new Error('Payment amount must be greater than 0');
-    }
-  }
-  
+
   // Getters
   public getBookingId(): string {
     return this.bookingId;
   }
-  
-  public getPayerId(): string {
-    return this.payerId;
+
+  public getUserId(): string {
+    return this.userId;
   }
-  
-  public getPayeeId(): string {
-    return this.payeeId;
-  }
-  
+
   public getAmount(): number {
     return this.amount;
   }
-  
+
   public getCurrency(): string {
     return this.currency;
   }
-  
-  public getPaymentMethod(): string {
-    return this.paymentMethod;
-  }
-  
+
   public getStatus(): PaymentStatus {
     return this.status;
   }
-  
-  public getStripePaymentIntentId(): string | undefined {
+
+  public getPaymentMethod(): string {
+    return this.paymentMethod;
+  }
+
+  public getStripePaymentIntentId(): Nullable<string> {
     return this.stripePaymentIntentId;
   }
-  
-  public getCompletedAt(): Date | undefined {
+
+  public getBreakdown(): PaymentBreakdown {
+    return this.breakdown;
+  }
+
+  public getMetadata(): Record<string, any> {
+    return this.metadata;
+  }
+
+  public getCompletedAt(): Nullable<Date> {
     return this.completedAt;
   }
-  
-  // Status management
+
+  public getCreatedAt(): Date {
+    return this.createdAt;
+  }
+
+  public getUpdatedAt(): Date {
+    return this.updatedAt;
+  }
+
+  // Business methods
+  public markAsCompleted(): void {
+    this.status = PaymentStatus.COMPLETED;
+    this.completedAt = new Date();
+    this.updatedAt = new Date();
+  }
+
+  public markAsFailed(): void {
+    this.status = PaymentStatus.FAILED;
+    this.updatedAt = new Date();
+  }
+
+  public markAsCancelled(): void {
+    this.status = PaymentStatus.FAILED;
+    this.updatedAt = new Date();
+  }
+
   public setStripePaymentIntentId(intentId: string): void {
     this.stripePaymentIntentId = intentId;
-    this.updateUpdatedAt();
+    this.updatedAt = new Date();
   }
-  
-  public complete(transactionId: string): void {
-    if (this.status !== PaymentStatus.PENDING) {
-      throw new Error('Only pending payments can be completed');
-    }
-    this.status = PaymentStatus.COMPLETED;
-    this.transactionId = transactionId;
-    this.completedAt = new Date();
-    this.updateUpdatedAt();
+
+  public isCompleted(): boolean {
+    return this.status === PaymentStatus.COMPLETED;
   }
-  
-  public fail(reason?: string): void {
-    if (this.status === PaymentStatus.COMPLETED) {
-      throw new Error('Cannot fail a completed payment');
-    }
-    this.status = PaymentStatus.FAILED;
-    this.metadata = { ...this.metadata, failureReason: reason };
-    this.updateUpdatedAt();
-  }
-  
-  public refund(refundAmount: number): void {
-    if (this.status !== PaymentStatus.COMPLETED) {
-      throw new Error('Can only refund completed payments');
-    }
-    if (refundAmount > this.amount) {
-      throw new Error('Refund amount cannot exceed payment amount');
-    }
-    
-    this.refundAmount = refundAmount;
-    this.refundedAt = new Date();
-    
-    if (refundAmount === this.amount) {
-      this.status = PaymentStatus.REFUNDED;
-    } else {
-      this.status = PaymentStatus.PARTIAL_REFUND;
-    }
-    
-    this.updateUpdatedAt();
-  }
-  
-  public getRefundAmount(): number {
-    return this.refundAmount || 0;
+
+  public canBeRefunded(): boolean {
+    return this.status === PaymentStatus.COMPLETED && this.amount > 0;
   }
 }
 
+export interface PaymentBreakdown {
+  subtotal: number;
+  cleaningFee: number;
+  serviceFee: number;
+  total: number;
+  hostEarnings?: number;
+  platformFee?: number;
+}

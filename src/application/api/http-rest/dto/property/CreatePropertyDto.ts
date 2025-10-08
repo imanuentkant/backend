@@ -43,11 +43,22 @@ export class CreatePropertyDto {
   @Min(1)
   pricePerNight: number;
   
+  @ApiPropertyOptional({ description: 'Đơn vị tiền tệ', default: 'USD' })
+  @IsString()
+  @IsOptional()
+  currency?: string;
+  
   @ApiPropertyOptional({ description: 'Phí vệ sinh', minimum: 0 })
   @IsNumber()
   @IsOptional()
   @Min(0)
   cleaningFee?: number;
+  
+  @ApiPropertyOptional({ description: 'Phần trăm phí dịch vụ', minimum: 0, maximum: 100, default: 14 })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  serviceFeePercentage?: number;
   
   @ApiPropertyOptional({ description: 'Số đêm tối thiểu', minimum: 1, default: 1 })
   @IsNumber()

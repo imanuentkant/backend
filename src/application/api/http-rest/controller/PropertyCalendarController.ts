@@ -8,7 +8,15 @@ import {
   BlockDatesDto,
   UpdateAvailabilityRulesDto,
 } from '@application/api/http-rest/dto/property/CalendarDto';
-import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
+import { GetPropertyCalendarUseCase } from '@core/service/property/usecase/GetPropertyCalendarUseCase';
+import { UpdateDatePricingUseCase } from '@core/service/property/usecase/UpdateDatePricingUseCase';
+import { BulkUpdatePricingUseCase } from '@core/service/property/usecase/BulkUpdatePricingUseCase';
+import { BlockDatesUseCase } from '@core/service/property/usecase/BlockDatesUseCase';
+import { UnblockDatesUseCase } from '@core/service/property/usecase/UnblockDatesUseCase';
+import { GetAvailabilityRulesUseCase } from '@core/service/property/usecase/GetAvailabilityRulesUseCase';
+import { UpdateAvailabilityRulesUseCase } from '@core/service/property/usecase/UpdateAvailabilityRulesUseCase';
+import { GetAvailabilitySummaryUseCase } from '@core/service/property/usecase/GetAvailabilitySummaryUseCase';
+import { Request } from 'express';
 
 /**
  * Property Calendar Controller - Calendar and pricing management
@@ -19,6 +27,17 @@ import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 @ApiBearerAuth()
 export class PropertyCalendarController {
   
+  constructor(
+    private readonly getPropertyCalendarUseCase: GetPropertyCalendarUseCase,
+    private readonly updateDatePricingUseCase: UpdateDatePricingUseCase,
+    private readonly bulkUpdatePricingUseCase: BulkUpdatePricingUseCase,
+    private readonly blockDatesUseCase: BlockDatesUseCase,
+    private readonly unblockDatesUseCase: UnblockDatesUseCase,
+    private readonly getAvailabilityRulesUseCase: GetAvailabilityRulesUseCase,
+    private readonly updateAvailabilityRulesUseCase: UpdateAvailabilityRulesUseCase,
+    private readonly getAvailabilitySummaryUseCase: GetAvailabilitySummaryUseCase,
+  ) {}
+  
   /**
    * Get calendar for month
    */
@@ -28,38 +47,25 @@ export class PropertyCalendarController {
   async getCalendar(
     @Param('propertyId') propertyId: string,
     @Query() query: GetCalendarDto,
-    @Req() request: any,
+    @Req() request: Request,
   ) {
     const { month, year } = query;
     
-    // Generate mock calendar data for month
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const days = [];
+    // Get real calendar data from database
+    const days = await this.getPropertyCalendarUseCase.execute({
+      propertyId,
+      month,
+      year,
+    });
     
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month - 1, day);
-      const dayOfWeek = date.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      
-      // Mock pricing - higher on weekends
-      const basePrice = 100;
-      const price = isWeekend ? basePrice * 1.5 : basePrice;
-      
-      // Mock availability
-      const isBooked = Math.random() < 0.3; // 30% booked
-      const isBlocked = !isBooked && Math.random() < 0.1; // 10% blocked
-      
-      days.push({
-        date: date.toISOString().split('T')[0],
-        dayOfWeek: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek],
-        isWeekend,
-        pricePerNight: price,
-        isAvailable: !isBooked && !isBlocked,
-        status: isBooked ? 'booked' : isBlocked ? 'blocked' : 'available',
-        minimumNights: 1,
-        bookingId: isBooked ? UuidGenerator.generate() : null,
-      });
-    }
+    // Calculate summary
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const available = days.filter(d => d.status === 'available').length;
+    const booked = days.filter(d => d.status === 'booked').length;
+    const blocked = days.filter(d => d.status === 'blocked').length;
+    const averagePrice = days.reduce((sum, d) => sum + d.pricePerNight, 0) / daysInMonth;
+    const revenue = days.filter(d => d.status === 'booked')
+      .reduce((sum, d) => sum + d.pricePerNight, 0);
     
     return {
       propertyId,
@@ -68,12 +74,11 @@ export class PropertyCalendarController {
       days,
       summary: {
         totalDays: daysInMonth,
-        available: days.filter(d => d.status === 'available').length,
-        booked: days.filter(d => d.status === 'booked').length,
-        blocked: days.filter(d => d.status === 'blocked').length,
-        averagePrice: days.reduce((sum, d) => sum + d.pricePerNight, 0) / daysInMonth,
-        revenue: days.filter(d => d.status === 'booked')
-          .reduce((sum, d) => sum + d.pricePerNight, 0),
+        available,
+        booked,
+        blocked,
+        averagePrice: Math.round(averagePrice * 100) / 100,
+        revenue: Math.round(revenue * 100) / 100,
       },
     };
   }
@@ -87,13 +92,19 @@ export class PropertyCalendarController {
   async updateDatePrice(
     @Param('propertyId') propertyId: string,
     @Body() dto: UpdateDatePriceDto,
-    @Req() request: any,
+    @Req() request: Request,
   ) {
+    const calendar = await this.updateDatePricingUseCase.execute({
+      propertyId,
+      date: new Date(dto.date),
+      pricePerNight: dto.pricePerNight,
+    });
+    
     return {
       propertyId,
       date: dto.date,
-      pricePerNight: dto.pricePerNight,
-      updatedAt: new Date(),
+      pricePerNight: calendar.getPricePerNight(),
+      updatedAt: calendar.getUpdatedAt(),
       message: 'Price updated for this date',
     };
   }
@@ -107,20 +118,28 @@ export class PropertyCalendarController {
   async bulkUpdatePricing(
     @Param('propertyId') propertyId: string,
     @Body() dto: BulkUpdatePricingDto,
-    @Req() request: any,
+    @Req() request: Request,
   ) {
     const startDate = new Date(dto.startDate);
     const endDate = new Date(dto.endDate);
-    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    const updatedCount = await this.bulkUpdatePricingUseCase.execute({
+      propertyId,
+      startDate,
+      endDate,
+      pricePerNight: dto.pricePerNight,
+    });
+    
+    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
     return {
       propertyId,
       startDate: dto.startDate,
       endDate: dto.endDate,
       pricePerNight: dto.pricePerNight,
-      daysUpdated: days,
+      daysUpdated: updatedCount || days,
       updatedAt: new Date(),
-      message: `Prices updated for ${days} days`,
+      message: `Prices updated for ${updatedCount || days} days`,
     };
   }
   
@@ -133,11 +152,19 @@ export class PropertyCalendarController {
   async blockDates(
     @Param('propertyId') propertyId: string,
     @Body() dto: BlockDatesDto,
-    @Req() request: any,
+    @Req() request: Request,
   ) {
     const startDate = new Date(dto.startDate);
     const endDate = new Date(dto.endDate);
-    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    await this.blockDatesUseCase.execute({
+      propertyId,
+      startDate,
+      endDate,
+      reason: dto.reason,
+    });
+    
+    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
     return {
       propertyId,
@@ -159,11 +186,18 @@ export class PropertyCalendarController {
   async unblockDates(
     @Param('propertyId') propertyId: string,
     @Body() dto: BlockDatesDto,
-    @Req() request: any,
+    @Req() request: Request,
   ) {
     const startDate = new Date(dto.startDate);
     const endDate = new Date(dto.endDate);
-    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    await this.unblockDatesUseCase.execute({
+      propertyId,
+      startDate,
+      endDate,
+    });
+    
+    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
     return {
       propertyId,
@@ -182,20 +216,27 @@ export class PropertyCalendarController {
   @ApiOperation({ summary: 'Lấy availability rules' })
   @ApiResponse({ status: 200, description: 'Availability rules' })
   async getAvailabilityRules(@Param('propertyId') propertyId: string) {
+    const rules = await this.getAvailabilityRulesUseCase.execute({ propertyId });
+    
+    // Calculate computed values
+    const earliestCheckIn = rules.getEarliestCheckInDate();
+    const latestCheckIn = new Date();
+    latestCheckIn.setMonth(latestCheckIn.getMonth() + rules.getBookingWindowMonths());
+    
     return {
       propertyId,
       rules: {
-        advanceNoticeDays: 1,          // Guest phải book trước 1 ngày
-        preparationDays: 1,             // Cần 1 ngày chuẩn bị giữa bookings
-        bookingWindowMonths: 12,        // Có thể book trước 12 tháng
-        checkInDays: [0,1,2,3,4,5,6],  // Tất cả các ngày
-        checkInTimeFrom: '14:00',       // Check-in từ 2 PM
-        checkInTimeTo: '22:00',         // đến 10 PM
-        checkOutTime: '12:00',          // Check-out 12 PM
+        advanceNoticeDays: rules.getAdvanceNoticeDays(),
+        preparationDays: rules.getPreparationDays(),
+        bookingWindowMonths: rules.getBookingWindowMonths(),
+        checkInDays: rules.getCheckInDays(),
+        checkInTimeFrom: rules.getCheckInTimeFrom(),
+        checkInTimeTo: rules.getCheckInTimeTo(),
+        checkOutTime: rules.getCheckOutTime(),
       },
       computed: {
-        earliestCheckIn: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        latestCheckIn: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        earliestCheckIn: earliestCheckIn.toISOString().split('T')[0],
+        latestCheckIn: latestCheckIn.toISOString().split('T')[0],
       },
     };
   }
@@ -209,12 +250,30 @@ export class PropertyCalendarController {
   async updateAvailabilityRules(
     @Param('propertyId') propertyId: string,
     @Body() dto: UpdateAvailabilityRulesDto,
-    @Req() request: any,
+    @Req() request: Request,
   ) {
+    const rules = await this.updateAvailabilityRulesUseCase.execute({
+      propertyId,
+      advanceNoticeDays: dto.advanceNoticeDays,
+      preparationDays: dto.preparationDays,
+      checkInDays: dto.checkInDays,
+      checkInTimeFrom: dto.checkInTimeFrom,
+      checkInTimeTo: dto.checkInTimeTo,
+      checkOutTime: dto.checkOutTime,
+    });
+    
     return {
       propertyId,
-      rules: dto,
-      updatedAt: new Date(),
+      rules: {
+        advanceNoticeDays: rules.getAdvanceNoticeDays(),
+        preparationDays: rules.getPreparationDays(),
+        bookingWindowMonths: rules.getBookingWindowMonths(),
+        checkInDays: rules.getCheckInDays(),
+        checkInTimeFrom: rules.getCheckInTimeFrom(),
+        checkInTimeTo: rules.getCheckInTimeTo(),
+        checkOutTime: rules.getCheckOutTime(),
+      },
+      updatedAt: rules.getUpdatedAt(),
       message: 'Availability rules updated successfully',
     };
   }
@@ -226,31 +285,49 @@ export class PropertyCalendarController {
   @ApiOperation({ summary: 'Lấy pricing calendar' })
   @ApiResponse({ status: 200, description: 'Pricing calendar' })
   async getPricingCalendar(@Param('propertyId') propertyId: string) {
-    // Generate pricing for next 12 months
+    // Generate pricing overview for next 12 months
     const months = [];
-    const basePrice = 100;
+    const currentDate = new Date();
     
     for (let m = 0; m < 12; m++) {
-      const date = new Date();
+      const date = new Date(currentDate);
       date.setMonth(date.getMonth() + m);
       
-      const isHighSeason = [5, 6, 7, 11].includes(date.getMonth()); // Summer & December
-      const avgPrice = isHighSeason ? basePrice * 1.3 : basePrice;
+      const monthData = await this.getPropertyCalendarUseCase.execute({
+        propertyId,
+        month: date.getMonth() + 1,
+        year: date.getFullYear(),
+      });
+      
+      const prices = monthData.map(d => d.pricePerNight);
+      const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+      const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+      const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+      const bookedDays = monthData.filter(d => d.status === 'booked').length;
+      const totalDays = monthData.length;
+      const occupancyRate = totalDays > 0 ? (bookedDays / totalDays) * 100 : 0;
+      
+      const isHighSeason = [5, 6, 7, 11].includes(date.getMonth());
       
       months.push({
         month: date.getMonth() + 1,
         year: date.getFullYear(),
-        averagePrice: avgPrice,
-        minPrice: avgPrice * 0.8,
-        maxPrice: avgPrice * 1.5,
-        occupancyRate: Math.random() * 40 + 40, // 40-80%
+        averagePrice: Math.round(avgPrice * 100) / 100,
+        minPrice: Math.round(minPrice * 100) / 100,
+        maxPrice: Math.round(maxPrice * 100) / 100,
+        occupancyRate: Math.round(occupancyRate * 10) / 10,
         season: isHighSeason ? 'high' : 'normal',
       });
     }
     
+    const allPrices = months.map(m => m.averagePrice).filter(p => p > 0);
+    const basePricePerNight = allPrices.length > 0 
+      ? Math.round((allPrices.reduce((a, b) => a + b, 0) / allPrices.length) * 100) / 100
+      : 100;
+    
     return {
       propertyId,
-      basePricePerNight: basePrice,
+      basePricePerNight,
       currency: 'USD',
       months,
       recommendations: [
@@ -268,42 +345,19 @@ export class PropertyCalendarController {
   @ApiOperation({ summary: 'Lấy tổng quan availability' })
   @ApiResponse({ status: 200, description: 'Availability summary' })
   async getAvailabilitySummary(@Param('propertyId') propertyId: string) {
+    const summary = await this.getAvailabilitySummaryUseCase.execute({ propertyId });
+    
     return {
       propertyId,
-      next30Days: {
-        available: 22,
-        booked: 6,
-        blocked: 2,
-        occupancyRate: 26.7, // %
-      },
-      next90Days: {
-        available: 65,
-        booked: 18,
-        blocked: 7,
-        occupancyRate: 28.9,
-      },
+      next30Days: summary.next30Days,
+      next90Days: summary.next90Days,
       yearToDate: {
-        totalBookings: 48,
-        totalNights: 156,
-        occupancyRate: 42.7,
-        revenue: 15600,
+        totalBookings: 0, // TODO: Get from booking repository
+        totalNights: 0,
+        occupancyRate: 0,
+        revenue: 0,
       },
-      upcomingBookings: [
-        {
-          id: UuidGenerator.generate(),
-          checkIn: '2025-10-15',
-          checkOut: '2025-10-18',
-          nights: 3,
-          guest: 'John Doe',
-        },
-        {
-          id: UuidGenerator.generate(),
-          checkIn: '2025-10-22',
-          checkOut: '2025-10-25',
-          nights: 3,
-          guest: 'Jane Smith',
-        },
-      ],
+      upcomingBookings: [], // TODO: Get from booking repository
     };
   }
   
@@ -316,18 +370,19 @@ export class PropertyCalendarController {
   async syncICalendar(
     @Param('propertyId') propertyId: string,
     @Body() body: { icalUrl: string },
-    @Req() request: any,
+    @Req() request: Request,
   ) {
-    // Fetch iCal feed
-    // Parse dates
-    // Block dates trong calendar
+    // TODO: Implement iCal sync
+    // - Fetch iCal feed from URL
+    // - Parse VEVENT entries
+    // - Block dates in calendar based on external bookings
     
     return {
       propertyId,
       icalUrl: body.icalUrl,
       syncedAt: new Date(),
-      datesImported: 15,
-      message: 'Calendar synced successfully. 15 dates blocked from external calendar.',
+      datesImported: 0,
+      message: 'iCal sync feature coming soon',
     };
   }
   
@@ -349,4 +404,3 @@ export class PropertyCalendarController {
     };
   }
 }
-

@@ -1,9 +1,16 @@
 import { TimestampedEntity } from '@core/common/entity/TimestampedEntity';
 import { BookingStatus, CancellationPolicy } from '@core/common/enums/BookingEnums';
+import { BookableItemType } from '@core/common/entity/BookableItem';
 
 export class Booking extends TimestampedEntity<string> {
   
-  private propertyId: string;
+  // Polymorphic bookable item
+  private bookableType: BookableItemType;
+  private bookableId: string;
+  
+  // Backward compatibility - deprecated but kept for existing code
+  private propertyId: string; // Will be same as bookableId when bookableType is PROPERTY
+  
   private guestId: string;
   private checkInDate: Date;
   private checkOutDate: Date;
@@ -24,7 +31,9 @@ export class Booking extends TimestampedEntity<string> {
   
   constructor(payload: {
     id?: string,
-    propertyId: string,
+    bookableType?: BookableItemType,
+    bookableId?: string,
+    propertyId?: string, // Backward compatibility
     guestId: string,
     checkInDate: Date,
     checkOutDate: Date,
@@ -40,7 +49,24 @@ export class Booking extends TimestampedEntity<string> {
     updatedAt?: Date,
   }) {
     super(payload.id, payload.createdAt, payload.updatedAt);
-    this.propertyId = payload.propertyId;
+    
+    // Handle polymorphic bookable item
+    if (payload.bookableType && payload.bookableId) {
+      this.bookableType = payload.bookableType;
+      this.bookableId = payload.bookableId;
+      // For backward compatibility, if booking a property, also set propertyId
+      this.propertyId = payload.bookableType === BookableItemType.PROPERTY 
+        ? payload.bookableId 
+        : payload.propertyId || '';
+    } else if (payload.propertyId) {
+      // Backward compatibility: if only propertyId is provided
+      this.bookableType = BookableItemType.PROPERTY;
+      this.bookableId = payload.propertyId;
+      this.propertyId = payload.propertyId;
+    } else {
+      throw new Error('Either bookableId/bookableType or propertyId must be provided');
+    }
+    
     this.guestId = payload.guestId;
     this.checkInDate = payload.checkInDate;
     this.checkOutDate = payload.checkOutDate;
@@ -99,6 +125,14 @@ export class Booking extends TimestampedEntity<string> {
   }
   
   // Getters
+  public getBookableType(): BookableItemType {
+    return this.bookableType;
+  }
+  
+  public getBookableId(): string {
+    return this.bookableId;
+  }
+  
   public getPropertyId(): string {
     return this.propertyId;
   }

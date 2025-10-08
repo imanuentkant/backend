@@ -1,7 +1,17 @@
 import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { HttpJwtAuthGuard } from '@application/api/http-rest/auth/guard/HttpJwtAuthGuard';
-import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
+import { GetHostDashboardUseCase } from '@core/service/booking/usecase/GetHostDashboardUseCase';
+import { GetHostEarningsUseCase } from '@core/service/booking/usecase/GetHostEarningsUseCase';
+import { GetHostOccupancyUseCase } from '@core/service/booking/usecase/GetHostOccupancyUseCase';
+import { GetEarningsQueryDto, PeriodType } from '@application/api/http-rest/dto/booking/GetEarningsQueryDto';
+import { 
+  HostDashboardOverviewResponseDto,
+  HostEarningsReportResponseDto,
+  HostOccupancyReportResponseDto,
+  PerformanceMetricsResponseDto,
+  RevenueProjectionResponseDto,
+} from '@application/api/http-rest/dto/booking/HostDashboardResponseDto';
 
 /**
  * Host Dashboard Controller - Analytics and insights for hosts
@@ -11,197 +21,136 @@ import { UuidGenerator } from '@core/common/util/uuid/UuidGenerator';
 @UseGuards(HttpJwtAuthGuard)
 @ApiBearerAuth()
 export class HostDashboardController {
-  
+
+  constructor(
+    private readonly getHostDashboardUseCase: GetHostDashboardUseCase,
+    private readonly getHostEarningsUseCase: GetHostEarningsUseCase,
+    private readonly getHostOccupancyUseCase: GetHostOccupancyUseCase,
+  ) { }
+
   /**
    * Get host dashboard overview
    */
   @Get('overview')
   @ApiOperation({ summary: 'Lấy tổng quan dashboard' })
-  @ApiResponse({ status: 200, description: 'Dashboard overview' })
-  async getDashboardOverview(@Req() request: any) {
+  @ApiResponse({ status: 200, description: 'Dashboard overview', type: HostDashboardOverviewResponseDto })
+  async getDashboardOverview(@Req() request: Express.Request & { user: { id: string } }): Promise<HostDashboardOverviewResponseDto> {
     const hostId = request.user.id;
-    
-    // Mock data
-    return {
-      summary: {
-        totalEarnings: 12450.00,
-        thisMonthEarnings: 3200.00,
-        totalBookings: 48,
-        activeListings: 3,
-        averageRating: 4.8,
-        responseRate: 95,
-        acceptanceRate: 88,
-      },
-      upcomingBookings: {
-        count: 5,
-        nextCheckIn: '2025-10-15',
-      },
-      pendingActions: {
-        bookingRequests: 2,
-        unansweredMessages: 3,
-        reviewsToRespond: 1,
-      },
-      performance: {
-        viewsThisMonth: 1240,
-        bookingRate: 12.5, // %
-        comparedToSimilar: 'above average',
-      },
-    };
+
+    const dashboard = await this.getHostDashboardUseCase.execute({ hostId });
+
+    return dashboard;
   }
-  
+
   /**
    * Get earnings report
    */
   @Get('earnings')
   @ApiOperation({ summary: 'Báo cáo thu nhập' })
-  @ApiResponse({ status: 200, description: 'Earnings report' })
-  async getEarnings(@Query('period') period: string = 'month', @Req() request: any) {
-    // Mock data
-    return {
-      period,
-      current: {
-        total: 3200.00,
-        bookings: 8,
-        averagePerBooking: 400.00,
-      },
-      previous: {
-        total: 2800.00,
-        bookings: 7,
-        averagePerBooking: 400.00,
-      },
-      growth: {
-        percentage: 14.3,
-        trend: 'up',
-      },
-      byProperty: [
-        {
-          propertyId: UuidGenerator.generate(),
-          title: 'Cozy Apartment',
-          earnings: 1600.00,
-          bookings: 4,
-          occupancyRate: 75,
-        },
-        {
-          propertyId: UuidGenerator.generate(),
-          title: 'Beach House',
-          earnings: 1200.00,
-          bookings: 2,
-          occupancyRate: 50,
-        },
-      ],
-      chart: {
-        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-        values: [800, 600, 900, 900],
-      },
-    };
+  @ApiResponse({ status: 200, description: 'Earnings report', type: HostEarningsReportResponseDto })
+  async getEarnings(
+    @Query() query: GetEarningsQueryDto, 
+    @Req() request: Express.Request & { user: { id: string } }
+  ): Promise<HostEarningsReportResponseDto> {
+    const hostId = request.user.id;
+
+    const earnings = await this.getHostEarningsUseCase.execute({
+      hostId,
+      period: query.period || PeriodType.MONTH,
+    });
+
+    return earnings;
   }
-  
+
   /**
    * Get occupancy report
    */
   @Get('occupancy')
   @ApiOperation({ summary: 'Báo cáo tỷ lệ lấp đầy' })
-  @ApiResponse({ status: 200, description: 'Occupancy report' })
-  async getOccupancy(@Req() request: any) {
-    return {
-      overall: {
-        rate: 72.5, // %
-        bookedNights: 65,
-        availableNights: 90,
-      },
-      byProperty: [
-        {
-          propertyId: UuidGenerator.generate(),
-          title: 'Cozy Apartment',
-          occupancyRate: 75,
-          bookedNights: 45,
-          availableNights: 60,
-        },
-        {
-          propertyId: UuidGenerator.generate(),
-          title: 'Beach House',
-          occupancyRate: 66.7,
-          bookedNights: 20,
-          availableNights: 30,
-        },
-      ],
-      projection: {
-        nextMonth: 78, // %
-        next3Months: 70,
-      },
-    };
+  @ApiResponse({ status: 200, description: 'Occupancy report', type: HostOccupancyReportResponseDto })
+  async getOccupancy(@Req() request: Express.Request & { user: { id: string } }): Promise<HostOccupancyReportResponseDto> {
+    const hostId = request.user.id;
+
+    const occupancy = await this.getHostOccupancyUseCase.execute({ hostId });
+
+    return occupancy;
   }
-  
+
   /**
    * Get performance metrics
+   * Note: Some metrics require message/view tracking - simplified for now
    */
   @Get('performance')
   @ApiOperation({ summary: 'Metrics hiệu suất' })
-  @ApiResponse({ status: 200, description: 'Performance metrics' })
-  async getPerformance(@Req() request: any) {
+  @ApiResponse({ status: 200, description: 'Performance metrics', type: PerformanceMetricsResponseDto })
+  async getPerformance(@Req() request: Express.Request & { user: { id: string } }): Promise<PerformanceMetricsResponseDto> {
+    const hostId = request.user.id;
+
+    // Get basic data from dashboard
+    const dashboard = await this.getHostDashboardUseCase.execute({ hostId });
+
     return {
       metrics: {
-        views: {
-          thisMonth: 1240,
-          lastMonth: 980,
-          growth: 26.5, // %
-        },
-        bookingRate: {
-          current: 12.5, // %
-          average: 10.2, // market average
-          rank: 'top 20%',
-        },
         responseRate: {
-          current: 95, // %
+          current: dashboard.summary.responseRate,
           target: 90,
-          status: 'excellent',
+          status: dashboard.summary.responseRate >= 90 ? 'excellent' : 'good',
         },
-        responseTime: {
-          average: '2 hours',
-          target: '24 hours',
-          status: 'excellent',
+        acceptanceRate: {
+          current: dashboard.summary.acceptanceRate,
+          target: 80,
+          status: dashboard.summary.acceptanceRate >= 80 ? 'excellent' : 'good',
+        },
+        averageRating: {
+          current: dashboard.summary.averageRating,
+          target: 4.5,
+          status: dashboard.summary.averageRating >= 4.5 ? 'excellent' : 'good',
         },
       },
-      rankings: {
-        inCity: 15, // out of 250
-        similarProperties: 3, // out of 45
-        superHostEligible: true,
-      },
+      pendingActions: dashboard.pendingActions,
       recommendations: [
-        'Add more photos to increase views',
-        'Consider instant booking for more bookings',
-        'Your response time is excellent - keep it up!',
-      ],
+        dashboard.summary.averageRating < 4.5 ? 'Focus on improving guest satisfaction' : 'Keep up the great work!',
+        dashboard.summary.acceptanceRate < 80 ? 'Consider accepting more booking requests' : 'Your acceptance rate is excellent',
+        dashboard.pendingActions.bookingRequests > 0 ? `You have ${dashboard.pendingActions.bookingRequests} pending booking requests` : null,
+      ].filter(Boolean) as string[],
     };
   }
-  
+
   /**
    * Get revenue projection
+   * Note: Simplified projection based on historical data
    */
   @Get('projection')
   @ApiOperation({ summary: 'Dự báo doanh thu' })
-  @ApiResponse({ status: 200, description: 'Revenue projection' })
-  async getProjection(@Req() request: any) {
+  @ApiResponse({ status: 200, description: 'Revenue projection', type: RevenueProjectionResponseDto })
+  async getProjection(@Req() request: Express.Request & { user: { id: string } }): Promise<RevenueProjectionResponseDto> {
+    const hostId = request.user.id;
+
+    // Get historical earnings
+    const monthEarnings = await this.getHostEarningsUseCase.execute({ hostId, period: 'month' });
+    const yearEarnings = await this.getHostEarningsUseCase.execute({ hostId, period: 'year' });
+
+    // Simple projection: average growth rate
+    const monthlyAverage = monthEarnings.current.total;
+    const projectedNextMonth = monthlyAverage * (1 + (monthEarnings.growth.percentage / 100));
+    const projected3Months = projectedNextMonth * 3;
+
     return {
       nextMonth: {
-        estimated: 3500.00,
-        confidence: 85, // %
-        basedOn: 'historical data and market trends',
+        estimated: Math.round(projectedNextMonth * 100) / 100,
+        confidence: 80,
+        basedOn: 'historical data and growth trends',
       },
       next3Months: {
-        estimated: 10200.00,
-        confidence: 75,
+        estimated: Math.round(projected3Months * 100) / 100,
+        confidence: 70,
       },
       yearToDate: {
-        actual: 28500.00,
-        target: 36000.00,
-        progress: 79.2, // %
+        actual: yearEarnings.current.total,
+        monthlyAverage: Math.round(monthlyAverage * 100) / 100,
+        totalBookings: yearEarnings.current.bookings,
       },
-      factors: [
-        { factor: 'Seasonal demand', impact: '+15%' },
-        { factor: 'Your pricing', impact: 'optimal' },
-        { factor: 'Market competition', impact: 'moderate' },
-      ],
+      note: 'Projections are estimates based on historical data and may vary.',
     };
   }
 }
