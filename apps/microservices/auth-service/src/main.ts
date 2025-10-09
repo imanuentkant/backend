@@ -50,26 +50,26 @@ async function bootstrap() {
   const httpPort = configService.get('PORT') || 3007;
   await app.listen(httpPort);
 
-  // gRPC Server (for inter-service communication)
-  const grpcPort = configService.get('GRPC_PORT') || 50051;
-  const grpcApp = await NestFactory.createMicroservice<MicroserviceOptions>(
-    AuthAppModule,
-    {
-      transport: Transport.GRPC,
-      options: {
-        package: 'auth',
-        protoPath: join(__dirname, '../../../shared/proto/auth.proto'),
-        url: `0.0.0.0:${grpcPort}`,
-      },
-    },
-  );
-  await grpcApp.listen();
+  // gRPC Server (DISABLED - Using Kafka instead)
+  // const grpcPort = configService.get('GRPC_PORT') || 50051;
+  // const grpcApp = await NestFactory.createMicroservice<MicroserviceOptions>(
+  //   AuthAppModule,
+  //   {
+  //     transport: Transport.GRPC,
+  //     options: {
+  //       package: 'auth',
+  //       protoPath: join(__dirname, '../../../shared/proto/auth.proto'),
+  //       url: `0.0.0.0:${grpcPort}`,
+  //     },
+  //   },
+  // );
+  // await grpcApp.listen();
 
   console.log(`
   ╔════════════════════════════════════════════╗
   ║  🔐 AUTH SERVICE - MICROSERVICE           ║
   ║  HTTP Port: ${httpPort}                           ║
-  ║  gRPC Port: ${grpcPort}                          ║
+  ║  Communication: HTTP + Kafka               ║
   ║  Docs: http://localhost:${httpPort}/api/docs      ║
   ║  Health: http://localhost:${httpPort}/health      ║
   ║  Status: READY ✅                          ║
