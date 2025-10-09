@@ -1,0 +1,41 @@
+{
+  "name": "@trungtamtrochoi/property-service",
+  "version": "1.0.0",
+  "description": "Property Service - Microservice for property/Airbnb features",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "test": "jest",
+    "test:cov": "jest --coverage"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.4",
+    "@nestjs/core": "^11.1.4",
+    "@nestjs/platform-express": "^11.1.4",
+    "@nestjs/swagger": "^8.0.0",
+    "@nestjs/typeorm": "^10.0.0",
+    "@nestjs/config": "^3.0.0",
+    "typeorm": "^0.3.17",
+    "pg": "^8.11.3",
+    "uuid": "^10.0.0",
+    "kafkajs": "^2.2.4",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/testing": "^11.1.4",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^10.0.0",
+    "jest": "^30.0.4",
+    "ts-jest": "^29.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
+

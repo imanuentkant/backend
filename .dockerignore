@@ -6,25 +6,17 @@ yarn-error.log
 # Build outputs
 dist
 build
-*.tsbuildinfo
+.next
+out
 
-# Tests
-test
-coverage
-.coverage
-*.spec.ts
-*.test.ts
-
-# Development files
+# Environment
 .env
 .env.local
 .env.*.local
-*.env
 
 # Git
 .git
 .gitignore
-.github
 
 # IDE
 .vscode
@@ -33,20 +25,22 @@ coverage
 *.swo
 *~
 
-# Documentation
+# Testing
+coverage
+.nyc_output
+test
+**/*.spec.ts
+**/*.test.ts
+
+# Logs
+logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
 README.md
 *.md
 docs
-
-# Docker
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-
-# Misc
-.DS_Store
-.husky
-.prettierrc
-.eslintrc
-commitlint.config.cjs
-

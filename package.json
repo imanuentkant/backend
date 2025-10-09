@@ -101,6 +101,7 @@
     "dotenv": "17.2.0",
     "env-var": "7.5.0",
     "helmet": "^8.1.0",
+    "http-proxy-middleware": "^3.0.5",
     "ioredis": "^5.8.1",
     "minio": "8.0.5",
     "module-alias": "2.2.3",

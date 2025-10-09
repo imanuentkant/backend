@@ -1,0 +1,205 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # API GATEWAY
+  # ============================================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3007
+      - DATING_SERVICE_URL=http://dating-service:3001
+      - PROPERTY_SERVICE_URL=http://property-service:3002
+      - VEHICLE_SERVICE_URL=http://vehicle-service:3003
+      - MESSAGE_SERVICE_URL=http://message-service:3006
+      - PAYMENT_SERVICE_URL=http://payment-service:3008
+    depends_on:
+      - auth-service
+      - dating-service
+    networks:
+      - microservices-network
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # DATING SERVICE
+  # ============================================
+  dating-service:
+    build:
+      context: ./services/dating-service
+      dockerfile: Dockerfile
+    container_name: dating-service
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./services/dating-service/.env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_NAME=dating_db
+      - AUTH_SERVICE_HOST=auth-service
+      - AUTH_SERVICE_PORT=50051
+      - REDIS_HOST=redis
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - microservices-network
+    restart: always
+    deploy:
+      replicas: 3  # Scale for high traffic
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # ============================================
+  # AUTH SERVICE
+  # ============================================
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "3007:3007"
+      - "50051:50051"  # gRPC
+    environment:
+      - NODE_ENV=production
+      - PORT=3007
+      - GRPC_PORT=50051
+      - DB_HOST=postgres
+      - DB_NAME=auth_db
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # PROPERTY SERVICE
+  # ============================================
+  property-service:
+    build:
+      context: ./services/property-service
+      dockerfile: Dockerfile
+    container_name: property-service
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DB_HOST=postgres
+      - DB_NAME=property_db
+      - AUTH_SERVICE_HOST=auth-service
+    depends_on:
+      - postgres
+      - auth-service
+    networks:
+      - microservices-network
+    restart: always
+
+  # ============================================
+  # INFRASTRUCTURE
+  # ============================================
+
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_MULTIPLE_DATABASES=dating_db,property_db,vehicle_db,auth_db,message_db,payment_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-databases.sh
+    networks:
+      - microservices-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - microservices-network
+    restart: always
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-admin}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - microservices-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  microservices-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  rabbitmq-data:
+    driver: local
+

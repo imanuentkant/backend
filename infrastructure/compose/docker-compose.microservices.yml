@@ -1,0 +1,242 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # API GATEWAY
+  # ============================================
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - AUTH_SERVICE_URL=http://auth-service:3007
+      - DATING_SERVICE_URL=http://dating-service:3001
+      - PROPERTY_SERVICE_URL=http://property-service:3002
+      - VEHICLE_SERVICE_URL=http://vehicle-service:3003
+      - MESSAGE_SERVICE_URL=http://message-service:3006
+      - PAYMENT_SERVICE_URL=http://payment-service:3008
+    depends_on:
+      - auth-service
+      - dating-service
+      - property-service
+    networks:
+      - microservices-network
+
+  # ============================================
+  # DATING SERVICE
+  # ============================================
+  dating-service:
+    build: ./services/dating-service
+    container_name: dating-service
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=dating_db
+      - AUTH_SERVICE_HOST=auth-service
+      - AUTH_SERVICE_PORT=50051
+      - MESSAGE_SERVICE_HOST=message-service
+      - MESSAGE_SERVICE_PORT=50052
+      - PAYMENT_SERVICE_HOST=payment-service
+      - PAYMENT_SERVICE_PORT=50053
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - auth-service
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # ============================================
+  # PROPERTY SERVICE
+  # ============================================
+  property-service:
+    build: ./services/property-service
+    container_name: property-service
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - DB_HOST=postgres
+      - DB_NAME=property_db
+      - AUTH_SERVICE_HOST=auth-service
+      - PAYMENT_SERVICE_HOST=payment-service
+    depends_on:
+      - postgres
+      - auth-service
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # ============================================
+  # VEHICLE SERVICE
+  # ============================================
+  vehicle-service:
+    build: ./services/vehicle-service
+    container_name: vehicle-service
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_NAME=vehicle_db
+      - AUTH_SERVICE_HOST=auth-service
+    depends_on:
+      - postgres
+      - auth-service
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # ============================================
+  # MESSAGE SERVICE (Shared)
+  # ============================================
+  message-service:
+    build: ./services/message-service
+    container_name: message-service
+    ports:
+      - "3006:3006"
+      - "50052:50052"  # gRPC
+    environment:
+      - PORT=3006
+      - GRPC_PORT=50052
+      - DB_HOST=postgres
+      - DB_NAME=message_db
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # ============================================
+  # AUTH SERVICE (Shared)
+  # ============================================
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "3007:3007"
+      - "50051:50051"  # gRPC
+    environment:
+      - PORT=3007
+      - GRPC_PORT=50051
+      - DB_HOST=postgres
+      - DB_NAME=auth_db
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+      - JWT_EXPIRES_IN=7d
+    depends_on:
+      - postgres
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # ============================================
+  # PAYMENT SERVICE (Shared)
+  # ============================================
+  payment-service:
+    build: ./services/payment-service
+    container_name: payment-service
+    ports:
+      - "3008:3008"
+      - "50053:50053"  # gRPC
+    environment:
+      - PORT=3008
+      - GRPC_PORT=50053
+      - DB_HOST=postgres
+      - DB_NAME=payment_db
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+    depends_on:
+      - postgres
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # ============================================
+  # INFRASTRUCTURE
+  # ============================================
+
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_MULTIPLE_DATABASES=dating_db,property_db,vehicle_db,auth_db,message_db,payment_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-databases.sh
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # Redis (Caching)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # RabbitMQ (Message Queue)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # MinIO (Storage)
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+networks:
+  microservices-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+  minio-data:
+

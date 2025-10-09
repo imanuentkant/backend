@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package message;
+
+service MessageService {
+  rpc CreateConversation(CreateConversationRequest) returns (ConversationResponse);
+  rpc SendMessage(SendMessageRequest) returns (MessageResponse);
+  rpc GetConversation(ConversationIdRequest) returns (ConversationResponse);
+}
+
+message CreateConversationRequest {
+  string matchId = 1;
+  repeated string participantIds = 2;
+}
+
+message SendMessageRequest {
+  string conversationId = 1;
+  string senderId = 2;
+  string content = 3;
+  string type = 4;
+}
+
+message ConversationIdRequest {
+  string conversationId = 1;
+}
+
+message ConversationResponse {
+  string id = 1;
+  repeated string participantIds = 2;
+  string createdAt = 3;
+  string lastMessageAt = 4;
+}
+
+message MessageResponse {
+  string id = 1;
+  string conversationId = 2;
+  string senderId = 3;
+  string content = 4;
+  string createdAt = 5;
+}
+

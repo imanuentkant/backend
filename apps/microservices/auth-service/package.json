@@ -1,0 +1,38 @@
+{
+  "name": "@trungtamtrochoi/auth-service",
+  "version": "1.0.0",
+  "description": "Auth Service - Authentication & Authorization Microservice",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.4",
+    "@nestjs/core": "^11.1.4",
+    "@nestjs/platform-express": "^11.1.4",
+    "@nestjs/swagger": "^8.0.0",
+    "@nestjs/typeorm": "^10.0.0",
+    "@nestjs/config": "^3.0.0",
+    "@nestjs/jwt": "^10.1.0",
+    "@nestjs/passport": "^10.0.1",
+    "@nestjs/microservices": "^11.1.4",
+    "@grpc/grpc-js": "^1.9.0",
+    "@grpc/proto-loader": "^0.7.10",
+    "passport": "^0.6.0",
+    "passport-jwt": "^4.0.1",
+    "passport-local": "^1.0.0",
+    "bcryptjs": "^2.4.3",
+    "typeorm": "^0.3.17",
+    "pg": "^8.11.3",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.8.3"
+  }
+}
+

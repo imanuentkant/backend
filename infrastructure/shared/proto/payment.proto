@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package payment;
+
+service PaymentService {
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (SubscriptionResponse);
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (SubscriptionResponse);
+  rpc ProcessPayment(PaymentRequest) returns (PaymentResponse);
+  rpc GetSubscriptionStatus(UserIdRequest) returns (SubscriptionResponse);
+}
+
+message CreateSubscriptionRequest {
+  string userId = 1;
+  string plan = 2;
+  double amount = 3;
+  string currency = 4;
+}
+
+message CancelSubscriptionRequest {
+  string userId = 1;
+  string subscriptionId = 2;
+}
+
+message PaymentRequest {
+  string userId = 1;
+  string type = 2;  // subscription, boost, etc
+  double amount = 3;
+  string currency = 4;
+  string metadata = 5;
+}
+
+message UserIdRequest {
+  string userId = 1;
+}
+
+message SubscriptionResponse {
+  string id = 1;
+  string userId = 2;
+  string plan = 3;
+  string status = 4;
+  string startDate = 5;
+  string endDate = 6;
+  bool isActive = 7;
+}
+
+message PaymentResponse {
+  string id = 1;
+  string status = 2;
+  double amount = 3;
+  string currency = 4;
+  string createdAt = 5;
+}
+
