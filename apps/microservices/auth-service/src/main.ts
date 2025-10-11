@@ -1,10 +1,8 @@
 import { NestFactory } from '@nestjs/core';
-import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AuthAppModule } from './AuthAppModule';
-import { join } from 'path';
 
 async function bootstrap() {
   // HTTP Server (REST APIs)
@@ -15,10 +13,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api/auth');
 
   // Validation
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // CORS
   app.enableCors({
@@ -29,10 +30,10 @@ async function bootstrap() {
   // Swagger
   const config = new DocumentBuilder()
     .setTitle('Auth Service API')
-    .setDescription('Authentication & Authorization Microservice')
-    .setVersion('1.0.0')
-    .addTag('Auth', 'Authentication endpoints')
-    .addTag('Users', 'User management')
+    .setDescription('Authentication & Authorization Microservice - Clean Architecture')
+    .setVersion('2.0.0')
+    .addTag('auth', 'Authentication endpoints')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -43,6 +44,7 @@ async function bootstrap() {
     res.status(200).json({
       service: 'auth-service',
       status: 'healthy',
+      architecture: 'Clean Architecture',
       timestamp: new Date().toISOString(),
     });
   });
@@ -50,24 +52,9 @@ async function bootstrap() {
   const httpPort = configService.get('PORT') || 3007;
   await app.listen(httpPort);
 
-  // gRPC Server (DISABLED - Using Kafka instead)
-  // const grpcPort = configService.get('GRPC_PORT') || 50051;
-  // const grpcApp = await NestFactory.createMicroservice<MicroserviceOptions>(
-  //   AuthAppModule,
-  //   {
-  //     transport: Transport.GRPC,
-  //     options: {
-  //       package: 'auth',
-  //       protoPath: join(__dirname, '../../../shared/proto/auth.proto'),
-  //       url: `0.0.0.0:${grpcPort}`,
-  //     },
-  //   },
-  // );
-  // await grpcApp.listen();
-
   console.log(`
   ╔════════════════════════════════════════════╗
-  ║  🔐 AUTH SERVICE - MICROSERVICE           ║
+  ║  🔐 AUTH SERVICE - CLEAN ARCHITECTURE     ║
   ║  HTTP Port: ${httpPort}                           ║
   ║  Communication: HTTP + Kafka               ║
   ║  Docs: http://localhost:${httpPort}/api/docs      ║
@@ -77,8 +64,7 @@ async function bootstrap() {
   `);
 }
 
-bootstrap().catch(err => {
+bootstrap().catch((err) => {
   console.error('❌ Failed to start Auth Service:', err);
   process.exit(1);
 });
-

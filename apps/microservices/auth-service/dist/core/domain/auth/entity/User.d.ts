@@ -1,0 +1,31 @@
+import { Entity } from '@core/common/entity/Entity';
+import { RemovableEntity } from '@core/common/entity/RemovableEntity';
+import { UserRole } from '@core/common/enums/UserEnums';
+import { Nullable } from '@core/common/type/CommonTypes';
+import { CreateUserEntityPayload } from '@core/domain/auth/entity/type/CreateUserEntityPayload';
+import { EditUserEntityPayload } from '@core/domain/auth/entity/type/EditUserEntityPayload';
+export declare class User extends Entity<string> implements RemovableEntity {
+    private firstName;
+    private lastName;
+    private readonly email;
+    private readonly role;
+    private password;
+    private readonly createdAt;
+    private editedAt;
+    private removedAt;
+    constructor(payload: CreateUserEntityPayload);
+    getFirstName(): string;
+    getLastName(): string;
+    getName(): string;
+    getEmail(): string;
+    getRole(): UserRole;
+    getPassword(): string;
+    getCreatedAt(): Date;
+    getEditedAt(): Nullable<Date>;
+    getRemovedAt(): Nullable<Date>;
+    hashPassword(): Promise<void>;
+    comparePassword(password: string): Promise<boolean>;
+    edit(payload: EditUserEntityPayload): Promise<void>;
+    remove(): Promise<void>;
+    static new(payload: CreateUserEntityPayload): Promise<User>;
+}

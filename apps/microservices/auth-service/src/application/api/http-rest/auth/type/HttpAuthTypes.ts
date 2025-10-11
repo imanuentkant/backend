@@ -1,0 +1,28 @@
+import { UserRole } from '@core/common/enums/UserEnums';
+import { Request } from 'express';
+
+export type HttpJwtPayload = {
+  id: string;
+};
+
+export type HttpRefreshTokenPayload = {
+  id: string;
+  type: 'refresh';
+};
+
+export type HttpUserPayload = {
+  id: string;
+  email: string;
+  role: UserRole;
+};
+
+export type HttpLoggedInUser = {
+  id: string;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type HttpRequestWithUser = Request & {
+  user: HttpUserPayload;
+};
+

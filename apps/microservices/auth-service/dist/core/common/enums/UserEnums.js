@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UserRole = void 0;
+var UserRole;
+(function (UserRole) {
+    UserRole["ADMIN"] = "ADMIN";
+    UserRole["USER"] = "USER";
+    UserRole["HOST"] = "HOST";
+    UserRole["GUEST"] = "GUEST";
+})(UserRole || (exports.UserRole = UserRole = {}));
+//# sourceMappingURL=UserEnums.js.map
